@@ -1,0 +1,39 @@
+version: "3"
+
+services:
+  pt-tf:
+    container_name: pytorch-wind
+    image: docker-pytorch2.0.1:wind-prediction
+    hostname: Ubuntu
+    restart: always
+    # tty: true # useful in the debugging stage of Dockerfile
+    privileged: true # this can avoid nvidia-smi error (Failed to initialize NVML: Unknown Error) after calling systemctl daemon-reload. However, this also gives all capabilities to the container. A better way is to diable privileged and mount devices manually (see below).
+    init: true # Run an init inside the container that forwards signals and reaps processes. see https://docs.docker.com/compose/compose-file/compose-file-v3/
+    pid: "host" # share pid with host to allow container to use nvidia-smi to show the processes ocupying GPUs 
+    volumes:
+      - /home/samuel/Documents/local/projects/UPM/TFM:/home/windgust/workspace:rw
+      # - /data/<to_replace>:/home/sjtu/data:rw # uncomment it when you need to mount more folders
+    ports:
+      - "8888:8888" # port for jupyter
+      - "2222:22" # port for ssh
+      - "1001:1001" # reserved some ports
+      - "1002:1002" # reserved some ports
+      - "1003:1003" # reserved some ports
+    devices:
+      - /dev/nvidia0:/dev/nvidia0
+      #- /dev/nvidia1:/dev/nvidia1 # if you got multiple gpus
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-caps:/dev/nvidia-caps
+      - /dev/nvidia-modeset:/dev/nvidia-modeset
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+    deploy:
+      resources:
+        reservations: # whether use gpu or not
+          devices:
+            - capabilities: ["gpu"]
+              device_ids: ["0"]
+        # limits: # set cpu  and memory limits
+          # cpus: 48
+          # memory: 40960M
+
