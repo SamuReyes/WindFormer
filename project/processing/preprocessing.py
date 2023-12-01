@@ -2,20 +2,17 @@ import netCDF4 as nc
 import numpy as np
 import matplotlib.pyplot as plt
 import glob
-import os, sys
+import os
 
-project_directory = os.path.abspath('..')
-sys.path.append(project_directory)
+def dictionary_to_array(dictionary):
+    """ Converts dictionary to numpy array """
 
-from project_directory.utils.config_loader import load_config
+    array = np.stack([dictionary[key] for key in dictionary.keys()], axis=-1)
 
-PATH = '/home/samuel/Documents/local/projects/UPM/TFM/project/raw_data'
+    return array
 
-LONGITUDE = (18, 35)
-LATITUDE = (10, 28)
-LEVELS = (0, 8)
 
-def extract_data(path, var_names, level):
+def extract_data(path, var_names, level, levels, latitude, longitude):
     """ Extracts data from netCDF files and concatenates it into a single array """
 
     if level == 'upper':
@@ -35,38 +32,62 @@ def extract_data(path, var_names, level):
             for var in var_names:
                 if var == 'time':
                     data[var].append(nc_file.variables[var][:])
+                    data[var] = data[var]
                 else:
                     if level == 'upper':
-                        data[var].append(nc_file.variables[var][:,LEVELS[0]:LEVELS[1]+1, LATITUDE[0]:LATITUDE[1]+1, LONGITUDE[0]:LONGITUDE[1]+1])
+                        data[var].append(nc_file.variables[var][:,levels[0]:levels[1]+1, latitude[0]:latitude[1]+1, longitude[0]:longitude[1]+1])
                     elif level == 'surface':
-                        data[var].append(nc_file.variables[var][:,LATITUDE[0]:LATITUDE[1]+1, LONGITUDE[0]:LONGITUDE[1]+1])
+                        data[var].append(nc_file.variables[var][:,latitude[0]:latitude[1]+1, longitude[0]:longitude[1]+1])
 
     # Concatenate data for each variable
     for var in var_names:
         data[var] = np.concatenate(data[var], axis=0)
         data[var] = data[var].filled(np.nan)
+        data[var] = data[var].astype(np.float32)
 
     return data
 
 
-if __name__ == '__main__':
+def save_constants(raw_data_path, constants_path):
+    """ Extracts constants from netCDF files and saves them as numpy arrays """
+    
+    # Obtener archivos aleatorios
+    upper_files = glob.glob(os.path.join(raw_data_path, '*-upper.nc'))
+    surface_files = glob.glob(os.path.join(raw_data_path, '*-surface.nc'))
 
-    upper_var_names = ['time', 'u', 'v', 'q', 't', 'd', 'z', 'w', 'vo']
-    surface_var_names = ['time', 'u100', 'v100', 'u10', 'v10', 'd2m', 't2m', 'z', 'msl']
+    # Procesar archivo upper
+    with nc.Dataset(upper_files[-1], 'r') as nc_file:
+        np.save(os.path.join(constants_path, 'latitude.npy'), nc_file.variables["latitude"][:].filled(np.nan).astype(np.float16))
+        np.save(os.path.join(constants_path, 'longitude.npy'), nc_file.variables["longitude"][:].filled(np.nan).astype(np.float16))
+        np.save(os.path.join(constants_path, 'level.npy'), nc_file.variables["level"][:].filled(np.nan).astype(np.uint16))
+    
+    # Procesar archivo surface
+    with nc.Dataset(surface_files[-1], 'r') as nc_file:
+        np.save(os.path.join(constants_path, 'land_sea_mask.npy'), nc_file.variables["lsm"][:].filled(np.nan).astype(np.float32))
 
-    upper_data = extract_data(PATH, upper_var_names, 'upper')
-    surface_data = extract_data(PATH, surface_var_names, 'surface')
 
+def preprocess_data(config):
+    """ Extracts data from netCDF files and saves it as numpy arrays """
 
-    with nc.Dataset('/home/samuel/Documents/local/projects/UPM/TFM/project/raw_data/2021-02-upper.nc', 'r') as nc_file:
-        np.save('./config/latitude.npy', nc_file.variables["latitude"][:].filled(np.nan).astype(np.float16))
-        np.save('./config/longitude.npy', nc_file.variables["longitude"][:].filled(np.nan).astype(np.float16))
-        np.save('./config/level.npy', nc_file.variables["level"][:].filled(np.nan).astype(np.uint16))
-        
-    with nc.Dataset('/home/samuel/Documents/local/projects/UPM/TFM/project/raw_data/2021-02-surface.nc', 'r') as nc_file:
-        np.save('./config/land_sea_mask.npy', nc_file.variables["lsm"][:].filled(np.nan).astype(np.float32))
+    upper_var_names = config['preprocessing']['upper_var_names']
+    surface_var_names = config['preprocessing']['surface_var_names']
+    raw_data_path = os.path.join(config['global']['path'], config['global']['raw_data_path'])
+    constants_path = os.path.join(config['global']['path'], config['global']['constants_path'])
+    processed_data_path = os.path.join(config['global']['path'], config['global']['processed_data_path'])
 
-    np.save('./data/time.npy', upper_data['time'].astype('uint32'))
+    longitude = config['preprocessing']['limits']['longitude']
+    latitude = config['preprocessing']['limits']['latitude']
+    levels = config['preprocessing']['limits']['levels']
+
+    # Extract data
+    upper_data = extract_data(raw_data_path, upper_var_names, 'upper', levels, latitude, longitude)
+    surface_data = extract_data(raw_data_path, surface_var_names, 'surface', levels, latitude, longitude)
+
+    # Save constants
+    save_constants(raw_data_path, constants_path)
+
+    # Save time
+    np.save(os.path.join(processed_data_path,'time.npy'), upper_data['time'].astype(np.uint32))
 
     del upper_data['time']
     del surface_data['time']
@@ -74,32 +95,13 @@ if __name__ == '__main__':
     upper_var_names.remove('time')
     surface_var_names.remove('time')
 
+    # Dictionary to single numpy array
+    combined_upper_data = dictionary_to_array(upper_data)
+    combined_surface_data = dictionary_to_array(surface_data)
 
-    for var in upper_data.keys():
-        upper_data[var] = upper_data[var].astype(np.float32)
-
-    for var in surface_data.keys():
-        surface_data[var] = surface_data[var].astype(np.float32)
-
-    surface_data_arrays = []
-    upper_data_arrays = []
-
-    for var in upper_data.keys():
-        print(var, upper_data[var].shape)
-        upper_data_arrays.append(upper_data[var])
-
-    for var in surface_data.keys():
-        print(var, surface_data[var].shape)
-        surface_data_arrays.append(surface_data[var])
-
-
-    combined_upper_data = np.stack(upper_data_arrays, axis=-1)
-    combined_surface_data = np.stack(surface_data_arrays, axis=-1)
-
-    del surface_data_arrays
-    del upper_data_arrays
     del upper_data
     del surface_data
 
-    np.save('./data/surface.npy', combined_surface_data)
-    np.save('./data/upper.npy', combined_upper_data)
+    # Save data
+    np.save(os.path.join(processed_data_path,'surface.npy'), combined_surface_data)
+    np.save(os.path.join(processed_data_path,'upper.npy'), combined_upper_data)
