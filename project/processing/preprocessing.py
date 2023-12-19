@@ -12,7 +12,7 @@ def dictionary_to_array(dictionary):
     return array
 
 
-def extract_data(path, var_names, level, levels, latitude, longitude):
+def extract_data(path:str, var_names:list, level:str, levels:list, latitude:list, longitude:list):
     """ Extracts data from netCDF files and concatenates it into a single array """
 
     if level == 'upper':
@@ -48,7 +48,7 @@ def extract_data(path, var_names, level, levels, latitude, longitude):
     return data
 
 
-def save_constants(raw_data_path, constants_path):
+def save_constants(raw_data_path:str, constants_path:str, levels:list, latitude:list, longitude:list):
     """ Extracts constants from netCDF files and saves them as numpy arrays """
     
     # Obtener archivos aleatorios
@@ -57,16 +57,16 @@ def save_constants(raw_data_path, constants_path):
 
     # Procesar archivo upper
     with nc.Dataset(upper_files[-1], 'r') as nc_file:
-        np.save(os.path.join(constants_path, 'latitude.npy'), nc_file.variables["latitude"][:].filled(np.nan).astype(np.float16))
-        np.save(os.path.join(constants_path, 'longitude.npy'), nc_file.variables["longitude"][:].filled(np.nan).astype(np.float16))
-        np.save(os.path.join(constants_path, 'level.npy'), nc_file.variables["level"][:].filled(np.nan).astype(np.uint16))
+        np.save(os.path.join(constants_path, 'latitude.npy'), nc_file.variables["latitude"][latitude[0]:latitude[1]+1].filled(np.nan).astype(np.float16))
+        np.save(os.path.join(constants_path, 'longitude.npy'), nc_file.variables["longitude"][longitude[0]:longitude[1]+1].filled(np.nan).astype(np.float16))
+        np.save(os.path.join(constants_path, 'level.npy'), nc_file.variables["level"][levels[0]:levels[1]+1].filled(np.nan).astype(np.uint16))
     
     # Procesar archivo surface
     with nc.Dataset(surface_files[-1], 'r') as nc_file:
-        np.save(os.path.join(constants_path, 'land_sea_mask.npy'), nc_file.variables["lsm"][:].filled(np.nan).astype(np.float32))
+        np.save(os.path.join(constants_path, 'land_sea_mask.npy'), nc_file.variables["lsm"][:,latitude[0]:latitude[1]+1, longitude[0]:longitude[1]+1].filled(np.nan).astype(np.float32))
 
 
-def preprocess_data(config):
+def preprocess_data(config:dict):
     """ Extracts data from netCDF files and saves it as numpy arrays """
 
     upper_var_names = config['preprocessing']['upper_var_names']
@@ -84,7 +84,7 @@ def preprocess_data(config):
     surface_data = extract_data(raw_data_path, surface_var_names, 'surface', levels, latitude, longitude)
 
     # Save constants
-    save_constants(raw_data_path, constants_path)
+    save_constants(raw_data_path, constants_path, levels, latitude, longitude)
 
     # Save time
     np.save(os.path.join(processed_data_path,'time.npy'), upper_data['time'].astype(np.uint32))
