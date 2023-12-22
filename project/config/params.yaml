@@ -10,3 +10,6 @@ preprocessing:
     longitude: [18, 35]
     latitude:  [10, 28]
     levels: [0, 8]
+barajas:
+  latitude: 40.5
+  longitude: -3.5
