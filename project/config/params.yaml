@@ -5,7 +5,7 @@ global:
   constants_path: data/constants
 preprocessing: 
   upper_var_names: ['time', 'u', 'v', 'q', 't', 'd', 'z', 'w', 'vo']
-  surface_var_names: ['time', 'u100', 'v100', 'u10', 'v10', 'd2m', 't2m', 'z', 'msl']
+  surface_var_names: ['time', 'u100', 'v100', 'u10', 'v10', 'd2m', 't2m', 'z', 'msl', 'i10fg']
   limits:
     longitude: [18, 35]
     latitude:  [10, 28]
