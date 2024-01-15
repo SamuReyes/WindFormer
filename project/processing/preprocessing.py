@@ -103,5 +103,5 @@ def preprocess_data(config:dict):
     del surface_data
 
     # Save data
-    np.save(os.path.join(processed_data_path,'surface.npy'), combined_surface_data)
-    np.save(os.path.join(processed_data_path,'upper.npy'), combined_upper_data)
+    np.save(os.path.join(processed_data_path,'surface_processed.npy'), combined_surface_data)
+    np.save(os.path.join(processed_data_path,'upper_processed.npy'), combined_upper_data)

@@ -2,6 +2,7 @@ global:
   path: /home/windgust/workspace/project
   raw_data_path: data/raw
   processed_data_path: data/processed
+  normalized_data_path: data/normalized
   constants_path: data/constants
 preprocessing: 
   upper_var_names: ['time', 'u', 'v', 'q', 't', 'd', 'z', 'w', 'vo']
