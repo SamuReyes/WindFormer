@@ -15,12 +15,12 @@ class PatchEmbedding(nn.Module):
         """
         B: batch size
         Z: number of vertical levels
-        W: latitude
         H: longitude
+        W: latitude
         C: number of channels (variables)
 
         upper-air variables:    (B, Z=9, W=20, H=20, C=8)
-        surface variables:      (B, W=20, H=20, C=7)
+        surface variables:      (B, W=20, H=20, C=9)
         """
 
         # torch conv layers take inputs of shape (B, C, (Z), H, W), therefore permute:
@@ -30,13 +30,13 @@ class PatchEmbedding(nn.Module):
         # Add padding to the data
         #   (B, 8, 9, 20, 20) -> (B, 8, 11, 22, 22)
         input_air = F.pad(input_air, (1,1,1,1,1,1))
-        #   (B, 7, 20, 20) -> (B, 7, 22, 22)
+        #   (B, 7, 20, 20) -> (B, 9, 22, 22)
         input_surface = F.pad(input_surface, (1,1,1,1))
 
         #! AQUI NO SE HACE PATCH EMBEDDING; SE HACE UNA CONVOLUCION 3D Y 2D
         #TODO: MIRAR LA IMPLEMENTACION DE PATCH EMBEDDING DE ClimaX
         # Apply a linear projection for patches of size patch_size[0]*patch_size[1]*patch_size[2]
-        #   (B, 5, 14, 1440, 724) -> (B, C, 7, 360, 181)
+        #   (B, 5, 14, 1440, 724) -> (B, C, 9, 360, 181)
         input_air = self.conv_air(input_air)
 
         # Apply a linear projection for patches of size patch_size[1]*patch_size[2]
