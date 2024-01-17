@@ -75,6 +75,58 @@
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+<!-- GETTING STARTED -->
+## Getting Started
+This section provides guidance on how to get your local machine set up to run the project. By following these instructions, you'll have a local copy of the project up and running.
+
+### Prerequisites
+Before you begin, ensure you have met the following requirements:
+
+- Docker: You need Docker installed on your system. If you haven't already done so, download and install Docker for your operating system from [Docker's official website](https://www.docker.com/).
+- NVIDIA Drivers (Optional): If you plan to leverage GPU capabilities, ensure you have the [NVIDIA drivers](https://www.nvidia.com/download/index.aspx) installed for Docker to access the GPU.
+- Git (Optional): To clone the project repository, you might need Git installed. Download it from [Git's official website](https://git-scm.com/).
+
+### Installation
+To install the project, follow these steps:
+
+**Clone the Repository:** 
+
+```bash
+git clone https://github.com/SamuReyes/WindViT
+```
+
+**Configure Docker Compose:**
+
+Navigate to the /docker directory and **modify the volume path** in the docker-compose.yml file to match your local project directory. Additionally, you can modify the name of the container that will be created.
+
+**Build the Docker Image:**
+
+In the /docker directory, run the following command to build the Docker image. Replace <user> and <password> with your desired credentials:
+
+```bash
+sudo docker build -t docker-pytorch2.0.1:wind-prediction -f Dockerfile.pytorch-wind --build-arg USER=<user> --build-arg PASSWORD=<password> .
+```
+
+**Start the Docker Container:**
+
+```bash
+docker-compose up -d
+```
+
+**Accessing the Services:**
+
+"The project is now running inside Docker containers. You can access Jupyter Notebook at http://localhost:8888. 
+Additionally, for a more integrated development experience, you can attach to these Docker containers using Visual Studio Code, installing with the 'Remote - Containers' and 'Docker' extensions. 
+For direct command-line interactions, use:
+
+```bash
+docker exec -it [container_name] /bin/bash
+```
+
+By following these steps, you should have the project running on your local machine. If you encounter any issues, please refer to the Docker and Docker Compose documentation for troubleshooting tips.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 
 
 <!-- USAGE EXAMPLES -->
@@ -115,7 +167,6 @@ Don't forget to give the project a star! Thanks again!
 5. Open a Pull Request
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
-
 
 
 <!-- LICENSE -->
