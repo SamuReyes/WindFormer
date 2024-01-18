@@ -11,8 +11,7 @@ services:
     init: true # Run an init inside the container that forwards signals and reaps processes. see https://docs.docker.com/compose/compose-file/compose-file-v3/
     pid: "host" # share pid with host to allow container to use nvidia-smi to show the processes ocupying GPUs 
     volumes:
-      - /home/samuel/Documents/local/projects/UPM/TFM:/home/windgust/workspace:rw
-      # - /data/<to_replace>:/home/sjtu/data:rw # uncomment it when you need to mount more folders
+      - /home/samuel/Documents/local/projects/UPM/TFM:/home/windgust/workspace:rw #! Replace with your own path
     ports:
       - "8888:8888" # port for jupyter
       - "2222:22" # port for ssh
