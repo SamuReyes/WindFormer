@@ -1,53 +1,94 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.checkpoint import checkpoint
-#from timm.models.layers import DropPath, trunc_normal_
+import torch
+from torch import nn
+from einops.layers.torch import Rearrange
 
-class PatchEmbedding(nn.Module):
-    def __init__(self, patch_size, dim, batch_size): # patch_size = (2,4,4)
-        super().__init__()
 
-        self.conv_air = nn.Conv3d(in_channels=8, out_channels=dim, kernel_size=patch_size, stride=patch_size)
-        self.conv_surface = nn.Conv2d(in_channels=7, out_channels=dim, kernel_size=patch_size[1:], stride=patch_size[1:])
+class PatchEmbedding3D(nn.Module):
+    """
+        Patch embedding for upper data
 
-    def forward(self, input_air, input_surface):
-        """
+        Input: (B, T, Z, W, H, C)
+        Output: (B, T, N, D)
+
         B: batch size
+        T: number of time steps
         Z: number of vertical levels
-        H: longitude
-        W: latitude
-        C: number of channels (variables)
+        W: longitude
+        H: latitude
+        C: number of channels (meteorological variables)
 
-        upper-air variables:    (B, Z=9, W=20, H=20, C=8)
-        surface variables:      (B, W=20, H=20, C=9)
-        """
+        N: number of patches
+        D: dimension of the embedding
+    """
+    def __init__(self, image_size, patch_size, dim):
+        super().__init__()
+        Z, W, H, C = image_size
+        patch_z, patch_w, patch_h = patch_size
 
-        # torch conv layers take inputs of shape (B, C, (Z), H, W), therefore permute:
-        input_air = input_air.permute(0, 4, 1, 2, 3)
-        input_surface = input_surface.permute(0, 3, 1, 2)
-        
-        # Add padding to the data
-        #   (B, 8, 9, 20, 20) -> (B, 8, 11, 22, 22)
-        input_air = F.pad(input_air, (1,1,1,1,1,1))
-        #   (B, 7, 20, 20) -> (B, 9, 22, 22)
-        input_surface = F.pad(input_surface, (1,1,1,1))
+        assert Z % patch_z == 0 and W % patch_w == 0 and H % patch_h == 0, 'Image dimensions must be divisible by the patch size'
 
-        #! AQUI NO SE HACE PATCH EMBEDDING; SE HACE UNA CONVOLUCION 3D Y 2D
-        #TODO: MIRAR LA IMPLEMENTACION DE PATCH EMBEDDING DE ClimaX
-        # Apply a linear projection for patches of size patch_size[0]*patch_size[1]*patch_size[2]
-        #   (B, 5, 14, 1440, 724) -> (B, C, 9, 360, 181)
-        input_air = self.conv_air(input_air)
+        num_patches = (Z // patch_z) * (W // patch_w) * (H // patch_h)
+        patch_dim = C * patch_z * patch_w * patch_h
 
-        # Apply a linear projection for patches of size patch_size[1]*patch_size[2]
-        #   (B, 7, 1440, 721) -> (B, C, 360, 181)
-        input_surface = self.conv_surface(input_surface)
+        self.to_patch_embedding = nn.Sequential(
+            Rearrange('b t (z pz) (w pw) (h ph) c -> b t (z w h) (pz pw ph c)', 
+                      pz = patch_z, pw = patch_w, ph = patch_h),
+            nn.Linear(patch_dim, dim),
+        )
 
-        # Concat the air and surface data in Z dimension -> (B, C, Z=8, H=360, W=181)
-        x = torch.cat((input_air, torch.unsqueeze(input_surface, 2)), 2)
+        self.pos_embedding = nn.Parameter(torch.randn(1, num_patches, dim)) #TODO: implement RoPe embedding
 
-        # torch.premute back to shape familiar from the paper: 
-        #   (B, C, Z, H, W) -> (B, Z, H, W, C)
-        x = torch.permute(x, (0,2,3,4,1))
+
+    def forward(self, img):
+        x = self.to_patch_embedding(img)
+        b, t, n, _ = x.shape
+
+        x += self.pos_embedding[:, :(n)]
+
+        return x
+    
+
+class PatchEmbedding2D(nn.Module):
+    """
+    Patch embedding for surface data
+
+    Input: (B, T, W, H, C)
+    Output: (B, T, N, D)
+
+    B: batch size
+    T: number of time steps
+    W: width
+    H: height
+    C: number of channels
+
+    N: number of patches
+    D: dimension of the embedding
+    """
+    def __init__(self, image_size, patch_size, dim):
+        super().__init__()
+        W, H, C = image_size
+        patch_w, patch_h = patch_size
+
+        assert W % patch_w == 0 and H % patch_h == 0, 'Image dimensions must be divisible by the patch size'
+
+        num_patches = (W // patch_w) * (H // patch_h)
+        patch_dim = C * patch_w * patch_h
+
+        self.to_patch_embedding = nn.Sequential(
+            Rearrange('b t (w pw) (h ph) c -> b t (w h) (pw ph c)', 
+                      pw = patch_w, ph = patch_h),
+            nn.Linear(patch_dim, dim),
+        )
+
+        self.pos_embedding = nn.Parameter(torch.randn(1, num_patches, dim)) #TODO: implement RoPe embedding
+
+    def forward(self, img):
+        x = self.to_patch_embedding(img)
+        b, t, n, _ = x.shape
+
+        x += self.pos_embedding[:, :(n)]
 
         return x
