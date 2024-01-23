@@ -4,6 +4,8 @@ import torch.nn.functional as F
 from torch import nn, einsum
 from einops.layers.torch import Rearrange
 from einops import rearrange, repeat
+from functools import reduce
+from operator import mul
 
 
 class PatchEmbedding3D(nn.Module):
@@ -188,7 +190,7 @@ class ViViT(nn.Module):
     """
         ViViT model
     """
-    def __init__(self, image_size_3d, patch_size_3d, image_size_2d, patch_size_2d, dim=192, depth=4, heads=3, pool='cls', dim_head=64, dropout=0., emb_dropout=0., scale_dim=4):
+    def __init__(self, image_size_3d, patch_size_3d, image_size_2d, patch_size_2d, output_dim, dim=192, depth=4, heads=3, dim_head=64, dropout=0., emb_dropout=0., scale_dim=4):
         super().__init__()
 
         self.to_patch_embedding_3d = PatchEmbedding3D(image_size_3d, patch_size_3d, dim)
@@ -199,12 +201,12 @@ class ViViT(nn.Module):
         self.temporal_transformer = Transformer(dim, depth, heads, dim_head, dim*scale_dim, dropout)
 
         self.dropout = nn.Dropout(emb_dropout)
-        self.pool = pool
 
-        self.mlp_head = nn.Sequential(
-            nn.LayerNorm(dim),
-            nn.Linear(dim, 12) #TODO: change to reconstruction
-        )
+        self.output_dim = output_dim
+        self.linear = nn.Linear(dim, reduce(mul, self.output_dim))
+
+        self.aggregation = nn.AdaptiveAvgPool1d(1)
+
     
     def create_temporal_attention_mask(self, t, n, device):
         """
@@ -225,28 +227,32 @@ class ViViT(nn.Module):
 
     def forward(self, x_3d, x_2d):
 
-        x_3d = self.to_patch_embedding_3d(x_3d)
-        x_2d = self.to_patch_embedding_2d(x_2d)
+        x_3d = self.to_patch_embedding_3d(x_3d) # [B, T, n, D]
+        x_2d = self.to_patch_embedding_2d(x_2d) # [B, T, n, D]
 
         # Concatenate upper and surface data
-        x = torch.cat((x_3d, x_2d), dim=2)
+        x = torch.cat((x_3d, x_2d), dim=2) # [B, T, N, D]
 
         b, t, n, _ = x.shape
 
         x = self.dropout(x)
 
         # Process the patches through the spatial transformer
-        x = rearrange(x, 'b t n d -> (b t) n d')
-        x = self.space_transformer(x)
-        x = rearrange(x, '(b t) n d -> b t n d', b=b)
+        x = rearrange(x, 'b t n d -> (b t) n d') # [B * T, N, D]
+        x = self.space_transformer(x) # [B, T, N, D]
+        x = rearrange(x, '(b t) n d -> b t n d', b=b) # [B, T, N, D]
 
         # Create mask for temporal transformer
-        mask = self.create_temporal_attention_mask(t, n, device=x.device)
+        mask = self.create_temporal_attention_mask(t, n, device=x.device) # [T * N, T * N]
 
         # Process through the temporal transformer
-        x = rearrange(x, 'b t n d -> b (t n) d')
-        x = self.temporal_transformer(x, mask)
+        x = rearrange(x, 'b t n d -> b (t n) d') # [B, T * N, D]
+        x = self.temporal_transformer(x, mask) # [B, T * N, D]
 
-        # Pooling (if necessary) and classification head
-        x = x.mean(dim=1) if self.pool == 'mean' else x[:, 0] #TODO: reconstruct the sequence instead of classification
-        return self.mlp_head(x)
+        # Reconstruction
+        x = self.linear(x) # [B, T * N, output_dim]
+        x = x.transpose(1, 2) # [B, output_dim, T * N]
+        x = self.aggregation(x).squeeze(2) # [B, prod(output_dim)]
+        x = x.view(-1, *self.output_dim) # [B, output_dim]
+
+        return x
