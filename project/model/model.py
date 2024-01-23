@@ -1,9 +1,9 @@
+import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-import torch
-from torch import nn
+from torch import nn, einsum
 from einops.layers.torch import Rearrange
+from einops import rearrange, repeat
 
 
 class PatchEmbedding3D(nn.Module):
@@ -41,7 +41,6 @@ class PatchEmbedding3D(nn.Module):
 
         self.pos_embedding = nn.Parameter(torch.randn(1, num_patches, dim)) #TODO: implement RoPe embedding
 
-
     def forward(self, img):
         x = self.to_patch_embedding(img)
         b, t, n, _ = x.shape
@@ -53,19 +52,19 @@ class PatchEmbedding3D(nn.Module):
 
 class PatchEmbedding2D(nn.Module):
     """
-    Patch embedding for surface data
+        Patch embedding for surface data
 
-    Input: (B, T, W, H, C)
-    Output: (B, T, N, D)
+        Input: (B, T, W, H, C)
+        Output: (B, T, N, D)
 
-    B: batch size
-    T: number of time steps
-    W: width
-    H: height
-    C: number of channels
+        B: batch size
+        T: number of time steps
+        W: width
+        H: height
+        C: number of channels
 
-    N: number of patches
-    D: dimension of the embedding
+        N: number of patches
+        D: dimension of the embedding
     """
     def __init__(self, image_size, patch_size, dim):
         super().__init__()
@@ -92,3 +91,162 @@ class PatchEmbedding2D(nn.Module):
         x += self.pos_embedding[:, :(n)]
 
         return x
+
+class PreNorm(nn.Module):
+    """
+        Pre-normalization layer for the transformer
+    """
+    def __init__(self, dim, fn):
+        super().__init__()
+        self.norm = nn.LayerNorm(dim)
+        self.fn = fn
+
+    def forward(self, x, mask=None):
+        if isinstance(self.fn, Attention):
+            return self.fn(self.norm(x), mask=mask)
+        else:
+            return self.fn(self.norm(x))
+
+class FeedForward(nn.Module):
+    """
+        Feed forward layer for the transformer:
+        Consists of two linear layers with GELU activation and dropout
+    """
+    def __init__(self, dim, hidden_dim, dropout = 0.):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(dim, hidden_dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, dim),
+            nn.Dropout(dropout)
+        )
+    def forward(self, x):
+        return self.net(x)
+
+class Attention(nn.Module):
+    """
+        Multi-head attention layer for the transformer.
+        It can apply a mask to the attention matrix or self-attention.
+    """
+    def __init__(self, dim, heads = 8, dim_head = 64, dropout = 0.):
+        super().__init__()
+        inner_dim = dim_head *  heads
+        project_out = not (heads == 1 and dim_head == dim)
+
+        self.heads = heads
+        self.scale = dim_head ** -0.5
+
+        self.attend = nn.Softmax(dim = -1)
+        self.to_qkv = nn.Linear(dim, inner_dim * 3, bias = False)
+
+        self.to_out = nn.Sequential(
+            nn.Linear(inner_dim, dim),
+            nn.Dropout(dropout)
+        ) if project_out else nn.Identity()
+
+    def forward(self, x, mask=None):
+        b, n, _, h = *x.shape, self.heads
+        qkv = self.to_qkv(x).chunk(3, dim=-1)
+        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=h), qkv)
+
+        dots = einsum('b h i d, b h j d -> b h i j', q, k) * self.scale
+
+        # Apply mask if not None, else apply self-attention
+        if mask is not None:
+            dots.masked_fill_(mask == 0, float('-1e20'))
+
+        attn = self.attend(dots)
+
+        out = einsum('b h i j, b h j d -> b h i d', attn, v)
+        out = rearrange(out, 'b h n d -> b n (h d)')
+
+        return self.to_out(out)
+
+
+class Transformer(nn.Module):
+    """
+        Transformer layer for the ViViT model.
+    """
+    def __init__(self, dim, depth, heads, dim_head, mlp_dim, dropout=0.):
+        super().__init__()
+        self.layers = nn.ModuleList([])
+        self.norm = nn.LayerNorm(dim)
+        for _ in range(depth):
+            self.layers.append(nn.ModuleList([
+                PreNorm(dim, Attention(dim, heads=heads, dim_head=dim_head, dropout=dropout)),
+                PreNorm(dim, FeedForward(dim, mlp_dim, dropout=dropout))
+            ]))
+
+    def forward(self, x, mask=None):
+        for attn, ff in self.layers:
+            x = attn(x, mask) + x
+            x = ff(x) + x
+        return self.norm(x)
+
+class ViViT(nn.Module):
+    """
+        ViViT model
+    """
+    def __init__(self, image_size_3d, patch_size_3d, image_size_2d, patch_size_2d, dim=192, depth=4, heads=3, pool='cls', dim_head=64, dropout=0., emb_dropout=0., scale_dim=4):
+        super().__init__()
+
+        self.to_patch_embedding_3d = PatchEmbedding3D(image_size_3d, patch_size_3d, dim)
+        self.to_patch_embedding_2d = PatchEmbedding2D(image_size_2d, patch_size_2d, dim)
+
+        self.space_transformer = Transformer(dim, depth, heads, dim_head, dim*scale_dim, dropout)
+
+        self.temporal_transformer = Transformer(dim, depth, heads, dim_head, dim*scale_dim, dropout)
+
+        self.dropout = nn.Dropout(emb_dropout)
+        self.pool = pool
+
+        self.mlp_head = nn.Sequential(
+            nn.LayerNorm(dim),
+            nn.Linear(dim, 12) #TODO: change to reconstruction
+        )
+    
+    def create_temporal_attention_mask(self, t, n, device):
+        """
+        Creates a mask for the temporal transformer. 
+        The mask is a matrix with ones in the lower triangular part (staircase form).
+
+        Example:
+
+        111000000
+        111111000
+        111111111
+        """
+        mask = torch.ones((t * n, t * n), device=device)
+        for i in range(t):
+            mask[i * n:(i + 1) * n, (i + 1) * n:] = 0
+
+        return mask.bool()
+
+    def forward(self, x_3d, x_2d):
+
+        x_3d = self.to_patch_embedding_3d(x_3d)
+        x_2d = self.to_patch_embedding_2d(x_2d)
+
+        # Concatenate upper and surface data
+        x = torch.cat((x_3d, x_2d), dim=2)
+
+        b, t, n, _ = x.shape
+
+        x = self.dropout(x)
+
+        # Process the patches through the spatial transformer
+        x = rearrange(x, 'b t n d -> (b t) n d')
+        x = self.space_transformer(x)
+        x = rearrange(x, '(b t) n d -> b t n d', b=b)
+
+        # Create mask for temporal transformer
+        mask = self.create_temporal_attention_mask(t, n, device=x.device)
+
+        # Process through the temporal transformer
+        x = rearrange(x, 'b t n d -> b (t n) d')
+        x = self.temporal_transformer(x, mask)
+
+        # Pooling (if necessary) and classification head
+        x = x.mean(dim=1) if self.pool == 'mean' else x[:, 0] #TODO: reconstruct the sequence instead of classification
+        return self.mlp_head(x)
