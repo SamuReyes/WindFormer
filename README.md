@@ -4,19 +4,19 @@
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-  <a href="https://github.com/SamuReyes/WindViT">
+  <a href="https://github.com/SamuReyes/WindViViT">
     <!-- <img src="images/logo.png" alt="Logo" width="80" height="80"> -->
   </a>
 
-  <h3 align="center">WindViT</h3>
+  <h3 align="center">WindViViT</h3>
 
   <p align="center">
     🚧 Project under construction 🚧
     <br />
     <br />
-    <a href="https://github.com/SamuReyes/WindViT/issues">Report Bug</a>
+    <a href="https://github.com/SamuReyes/WindViViT/issues">Report Bug</a>
     ·
-    <a href="https://github.com/SamuReyes/WindViT/issues">Request Feature</a>
+    <a href="https://github.com/SamuReyes/WindViViT/issues">Request Feature</a>
   </p>
 </div>
 
@@ -92,7 +92,7 @@ To install the project, follow these steps:
 **Clone the Repository:** 
 
 ```bash
-git clone https://github.com/SamuReyes/WindViT
+git clone https://github.com/SamuReyes/WindViViT
 ```
 
 **Configure Docker Compose:**
