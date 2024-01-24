@@ -8,9 +8,27 @@ preprocessing:
   upper_var_names: ['time', 'u', 'v', 'q', 't', 'd', 'z', 'w', 'vo']
   surface_var_names: ['time', 'u100', 'v100', 'u10', 'v10', 'd2m', 't2m', 'z', 'msl', 'i10fg']
   limits:
+    latitude:  [10, 27]
     longitude: [18, 35]
-    latitude:  [10, 28]
     levels: [0, 8]
 barajas:
   latitude: 40.5
   longitude: -3.5
+model:
+  image_size_3d: [9, 18, 18, 8]
+  patch_size_3d: [3, 6, 6]
+  image_size_2d: [18, 18, 9]
+  patch_size_2d: [6, 6]
+  output_dim: [10, 18, 18, 2]
+  dim: 192
+  depth: 4
+  heads: 3
+  dim_head: 64
+  dropout: 0.1
+  emb_dropout: 0.1
+  scale_dim: 4
+train:
+  batch_size: 8
+  sequence_length: 4
+  learning_rate: 0.0001
+  epochs: 3
