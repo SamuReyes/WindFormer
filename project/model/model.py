@@ -210,14 +210,14 @@ class ViViT(nn.Module):
     
     def create_temporal_attention_mask(self, t, n, device):
         """
-        Creates a mask for the temporal transformer. 
-        The mask is a matrix with ones in the lower triangular part (staircase form).
+            Creates a mask for the temporal transformer. 
+            The mask is a matrix with ones in the lower triangular part (staircase form).
 
-        Example:
+            Example:
 
-        111000000
-        111111000
-        111111111
+            111000000
+            111111000
+            111111111
         """
         mask = torch.ones((t * n, t * n), device=device)
         for i in range(t):
