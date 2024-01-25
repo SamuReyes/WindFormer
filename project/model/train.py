@@ -10,27 +10,37 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 num_epochs = 2
 
 class CustomDataset(Dataset):
-    def __init__(self, upper_data, surface_data, labels, sequence_length):
+    """
+        Initializes the dataset with the data and sequence length.
+
+        :param upper_data: 'Upper' data (T, L, W, H, C).
+        :param surface_data: 'surface' data (T, W, H, C).
+        :param labels: Labels (T, L, W, H, C).
+        :param sequence_length: Length of the input sequence.
+        :param delay: Delay for the label in time.
+    """
+    def __init__(self, upper_data, surface_data, labels, sequence_length, delay):
         self.upper_data = upper_data
         self.surface_data = surface_data
         self.labels = labels
         self.sequence_length = sequence_length
+        self.delay = delay
 
     def __len__(self):
-        return len(self.upper_data) - self.sequence_length
+        return len(self.upper_data) - self.sequence_length - self.delay
 
     def __getitem__(self, idx):
-        if idx + self.sequence_length >= len(self.upper_data):
+        if idx + self.sequence_length + self.delay >= len(self.upper_data):
             raise IndexError("Index out of range")
 
         upper_sequence = self.upper_data[idx : idx + self.sequence_length]
         surface_sequence = self.surface_data[idx : idx + self.sequence_length]
-        label = self.labels[idx + self.sequence_length]
+        label = self.labels[idx + self.sequence_length + self.delay]
 
         data = {
             'upper': torch.from_numpy(upper_sequence).float(),
             'surface': torch.from_numpy(surface_sequence).float(),
-            'label': torch.from_numpy(label).float()  # Asumiendo que labels ya es un ndarray
+            'label': torch.from_numpy(label).float()
         }
         return data
 
@@ -48,6 +58,7 @@ def train_model(config: dict):
     dropout = config['model']['dropout']
     emb_dropout = config['model']['emb_dropout']
     scale_dim = config['model']['scale_dim']
+    delay = config['model']['delay']
 
     sequence_length = config['train']['sequence_length']
     batch_size = config['train']['batch_size']
@@ -66,10 +77,10 @@ def train_model(config: dict):
     labels_val = np.load(os.path.join(train_data_path, 'labels_val.npy'))
 
     # Create dataset and dataloader
-    train_dataset = CustomDataset(upper_train, surface_train, labels_train, sequence_length=sequence_length)
+    train_dataset = CustomDataset(upper_train, surface_train, labels_train, sequence_length=sequence_length, delay=delay)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
 
-    val_dataset = CustomDataset(upper_val, surface_val, labels_val, sequence_length=sequence_length)
+    val_dataset = CustomDataset(upper_val, surface_val, labels_val, sequence_length=sequence_length, delay=delay)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
     # Create an instance of the model
@@ -110,10 +121,10 @@ def train_model(config: dict):
 
         # Save intermediate model
         if config['train']['save_model']:
-            torch.save(model.state_dict(), os.path.join(config['global']['path'], config['global']['checkpoints_path'], config['train']['model_name'], f'epoch_{epoch+1}.pth'))
+            torch.save(model.state_dict(), os.path.join(config['global']['path'], config['global']['checkpoints_path'], config['train']['model_name'] + f'_epoch_{epoch+1}.pth'))
 
         print(f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item()}, Val Loss: {val_loss}")
 
     # Save the model checkpoint
     if config['train']['save_model']:
-        torch.save(model.state_dict(), os.path.join(config['global']['path'], config['global']['checkpoints_path'], config['train']['model_name'], '.pth'))
+        torch.save(model.state_dict(), os.path.join(config['global']['path'], config['global']['checkpoints_path'], config['train']['model_name'] + '.pth'))
