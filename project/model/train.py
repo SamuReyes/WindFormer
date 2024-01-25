@@ -108,8 +108,12 @@ def train_model(config: dict):
 
             val_loss /= len(val_loader)
 
+        # Save intermediate model
+        if config['train']['save_model']:
+            torch.save(model.state_dict(), os.path.join(config['global']['path'], config['global']['checkpoints_path'], config['train']['model_name'], f'epoch_{epoch+1}.pth'))
+
         print(f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item()}, Val Loss: {val_loss}")
 
     # Save the model checkpoint
     if config['train']['save_model']:
-        torch.save(model.state_dict(), os.path.join(config['global']['path'], config['global']['checkpoints_path'], config['train']['model_name']))
+        torch.save(model.state_dict(), os.path.join(config['global']['path'], config['global']['checkpoints_path'], config['train']['model_name'], '.pth'))
