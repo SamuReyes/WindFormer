@@ -17,6 +17,7 @@
     <a href="https://github.com/SamuReyes/WindViViT/issues">Report Bug</a>
     ·
     <a href="https://github.com/SamuReyes/WindViViT/issues">Request Feature</a>
+    <img src="assets/spain_wind.png" width="40%">
   </p>
 </div>
 
