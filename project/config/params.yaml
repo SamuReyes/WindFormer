@@ -3,6 +3,8 @@ global:
   raw_data_path: data/raw
   processed_data_path: data/processed
   constants_path: data/constants
+  train_data_path: data/train
+  checkpoints_path: checkpoints
 preprocessing: 
   upper_var_names: ['time', 'u', 'v', 'q', 't', 'd', 'z', 'w', 'vo']
   surface_var_names: ['time', 'u100', 'v100', 'u10', 'v10', 'd2m', 't2m', 'z', 'msl', 'i10fg']
@@ -31,6 +33,8 @@ train:
   sequence_length: 4
   learning_rate: 0.0001
   epochs: 3
-  train: 0.7
-  validation: 0.1
-  test: 0.2
+  train: 0.65
+  validation: 0.2
+  test: 0.15
+  save_model: True
+  model_name: model.pth

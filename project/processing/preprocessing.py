@@ -75,6 +75,10 @@ def preprocess_data(config:dict):
     constants_path = os.path.join(config['global']['path'], config['global']['constants_path'])
     processed_data_path = os.path.join(config['global']['path'], config['global']['processed_data_path'])
 
+    # Create directory if not exist
+    os.makedirs(processed_data_path, exist_ok=True)
+    os.makedirs(constants_path, exist_ok=True)
+
     longitude = config['preprocessing']['limits']['longitude']
     latitude = config['preprocessing']['limits']['latitude']
     levels = config['preprocessing']['limits']['levels']
