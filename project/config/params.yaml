@@ -28,14 +28,15 @@ model:
   dropout: 0.1
   emb_dropout: 0.1
   scale_dim: 4
+  delay: 1
 train:
   batch_size: 8
-  sequence_length: 24
+  sequence_length: 4
   learning_rate: 0.0001
   epochs: 10
   train: 0.7
   validation: 0.15
   test: 0.15
-  save_intermediate: True
+  save_intermediate: False
   save_model: True
   model_name: model
