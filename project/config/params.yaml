@@ -2,7 +2,6 @@ global:
   path: /home/windgust/workspace/project
   raw_data_path: data/raw
   processed_data_path: data/processed
-  normalized_data_path: data/normalized
   constants_path: data/constants
 preprocessing: 
   upper_var_names: ['time', 'u', 'v', 'q', 't', 'd', 'z', 'w', 'vo']
@@ -32,3 +31,6 @@ train:
   sequence_length: 4
   learning_rate: 0.0001
   epochs: 3
+  train: 0.7
+  validation: 0.1
+  test: 0.2

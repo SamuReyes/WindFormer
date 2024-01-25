@@ -55,9 +55,9 @@ def train_model(config: dict):
     epochs = config['train']['epochs']
 
     # Load data
-    upper_data = np.load(os.path.join(config['global']['path'], config['global']['normalized_data_path'], 'upper_normalized.npy'))
-    surface_data = np.load(os.path.join(config['global']['path'], config['global']['normalized_data_path'], 'surface_normalized.npy'))
-    labels = np.load(os.path.join(config['global']['path'], config['global']['normalized_data_path'], 'labels_normalized.npy'))
+    upper_data = np.load(os.path.join(config['global']['path'], config['global']['processed_data_path'], 'upper.npy'))
+    surface_data = np.load(os.path.join(config['global']['path'], config['global']['processed_data_path'], 'surface.npy'))
+    labels = np.load(os.path.join(config['global']['path'], config['global']['processed_data_path'], 'labels.npy'))
 
     # Create dataset and dataloader
     dataset = CustomDataset(upper_data, surface_data, labels, sequence_length=sequence_length)

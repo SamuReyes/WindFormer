@@ -5,8 +5,8 @@ def get_labels(config:dict):
     """ Transforms the data into labels """
 
     # Load data
-    surface_data = np.load(os.path.join(config['global']['path'], config['global']['normalized_data_path'], 'surface_normalized.npy'))
-    upper_data = np.load(os.path.join(config['global']['path'], config['global']['normalized_data_path'], 'upper_normalized.npy'))
+    surface_data = np.load(os.path.join(config['global']['path'], config['global']['processed_data_path'], 'surface.npy'))
+    upper_data = np.load(os.path.join(config['global']['path'], config['global']['processed_data_path'], 'upper.npy'))
 
     upper_var_names = config['preprocessing']['upper_var_names']
     surface_var_names = config['preprocessing']['surface_var_names']
@@ -24,7 +24,7 @@ def get_labels(config:dict):
     combined_labels = np.concatenate((surface_data, upper_data), axis=1)
 
     # Save labels
-    np.save(os.path.join(config['global']['path'], config['global']['normalized_data_path'], 'labels_normalized.npy'), combined_labels)
+    np.save(os.path.join(config['global']['path'], config['global']['processed_data_path'], 'labels.npy'), combined_labels)
 
     # Free up memory
     del surface_data
