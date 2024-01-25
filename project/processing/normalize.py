@@ -3,10 +3,11 @@ import os
 
 def normalize_data(config:dict):
     """ Normalizes the data and saves the statistics in a dictionary """
+    processed_data_path = os.path.join(config['global']['path'], config['global']['processed_data_path'])
 
     # Load data
-    surface_data = np.load(os.path.join(config['global']['path'], config['global']['processed_data_path'], 'surface.npy'))
-    upper_data = np.load(os.path.join(config['global']['path'], config['global']['processed_data_path'], 'upper.npy'))
+    surface_data = np.load(os.path.join(processed_data_path, 'surface.npy'))
+    upper_data = np.load(os.path.join(processed_data_path, 'upper.npy'))
 
     statistics = {}
 
@@ -29,13 +30,9 @@ def normalize_data(config:dict):
     surface_data = (surface_data - surface_mean_reshaped) / surface_std_reshaped
     upper_data = (upper_data - upper_mean_reshaped) / upper_std_reshaped
 
-    # Create directory if not exist
-    normalized_data_path = os.path.join(config['global']['path'], config['global']['processed_data_path'])
-    os.makedirs(normalized_data_path, exist_ok=True)
-
     # Save normalized data
-    np.save(os.path.join(config['global']['path'], config['global']['processed_data_path'], 'surface.npy'), surface_data)
-    np.save(os.path.join(config['global']['path'], config['global']['processed_data_path'], 'upper.npy'), upper_data)
+    np.save(os.path.join(processed_data_path, 'surface.npy'), surface_data)
+    np.save(os.path.join(processed_data_path, 'upper.npy'), upper_data)
 
     # Free memory
     del surface_data

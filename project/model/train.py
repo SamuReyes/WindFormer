@@ -55,13 +55,22 @@ def train_model(config: dict):
     epochs = config['train']['epochs']
 
     # Load data
-    upper_data = np.load(os.path.join(config['global']['path'], config['global']['processed_data_path'], 'upper.npy'))
-    surface_data = np.load(os.path.join(config['global']['path'], config['global']['processed_data_path'], 'surface.npy'))
-    labels = np.load(os.path.join(config['global']['path'], config['global']['processed_data_path'], 'labels.npy'))
+    train_data_path = os.path.join(config['global']['path'], config['global']['train_data_path'])
+   
+    upper_train = np.load(os.path.join(train_data_path, 'upper_train.npy'))
+    surface_train = np.load(os.path.join(train_data_path, 'surface_train.npy'))
+    labels_train = np.load(os.path.join(train_data_path, 'labels_train.npy'))
+
+    upper_val = np.load(os.path.join(train_data_path, 'upper_val.npy'))
+    surface_val = np.load(os.path.join(train_data_path, 'surface_val.npy'))
+    labels_val = np.load(os.path.join(train_data_path, 'labels_val.npy'))
 
     # Create dataset and dataloader
-    dataset = CustomDataset(upper_data, surface_data, labels, sequence_length=sequence_length)
-    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+    train_dataset = CustomDataset(upper_train, surface_train, labels_train, sequence_length=sequence_length)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+
+    val_dataset = CustomDataset(upper_val, surface_val, labels_val, sequence_length=sequence_length)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
     # Create an instance of the model
     model = ViViT(image_size_3d, patch_size_3d, image_size_2d, patch_size_2d, output_dim, dim, depth, heads, dim_head, dropout, emb_dropout, scale_dim).to(device)
@@ -72,7 +81,9 @@ def train_model(config: dict):
 
     # Train cycle
     for epoch in range(epochs):
-        for data in data_loader:
+        model.train()
+        # Training
+        for data in train_loader:
             upper, surface, labels = data['upper'].to(device), data['surface'].to(device), data['label'].to(device)
 
             # Forward pass
@@ -84,5 +95,21 @@ def train_model(config: dict):
             loss.backward()
             optimizer.step()
 
-        print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item()}")
+        # Validation
+        model.eval() 
+        with torch.no_grad():
+            val_loss = 0
+            for data in val_loader:
+                upper, surface, labels = data['upper'].to(device), data['surface'].to(device), data['label'].to(device)
 
+                # Forward pass
+                outputs = model(upper, surface)
+                val_loss += loss_fn(outputs, labels).item()
+
+            val_loss /= len(val_loader)
+
+        print(f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item()}, Val Loss: {val_loss}")
+
+    # Save the model checkpoint
+    if config['train']['save_model']:
+        torch.save(model.state_dict(), os.path.join(config['global']['path'], config['global']['checkpoints_path'], config['train']['model_name']))
