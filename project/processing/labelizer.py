@@ -1,32 +1,36 @@
 import numpy as np
 import os
 
-def get_labels(config:dict):
-    """ Transforms the data into labels """
 
-    # Load data
-    surface_data = np.load(os.path.join(config['global']['path'], config['global']['processed_data_path'], 'surface.npy'))
-    upper_data = np.load(os.path.join(config['global']['path'], config['global']['processed_data_path'], 'upper.npy'))
+def get_labels(config: dict):
+    """
+    Extracts specific variables from surface and upper data and combines them into a single label dataset.
 
+    :param config: Dictionary containing configuration paths and variable names to be used for extracting labels.
+    """
+
+    # Load surface and upper data
+    surface_data = np.load(os.path.join(
+        config['global']['path'], config['global']['processed_data_path'], 'surface.npy'))
+    upper_data = np.load(os.path.join(
+        config['global']['path'], config['global']['processed_data_path'], 'upper.npy'))
+
+    # Retrieve the names of variables from the configuration for surface and upper data
     upper_var_names = config['preprocessing']['upper_var_names']
     surface_var_names = config['preprocessing']['surface_var_names']
 
-    # Get indices
-    surface_vars_indices = [surface_var_names.index(var) for var in ['u10', 'v10']]
+    # Determine the indices of 'u10', 'v10' for surface and 'u', 'v' for upper
+    surface_vars_indices = [surface_var_names.index(var) for var in [
+        'u10', 'v10']]
     upper_vars_indices = [upper_var_names.index(var) for var in ['u', 'v']]
 
-    # Extract out variables
     surface_data = surface_data[:, :, :, surface_vars_indices]
     upper_data = upper_data[:, :, :, :, upper_vars_indices]
 
-    # Combine data
+    # Expand dimensions of surface data and combine it with upper data to form a unified label dataset
     surface_data = np.expand_dims(surface_data, axis=1)
     combined_labels = np.concatenate((surface_data, upper_data), axis=1)
 
-    # Save labels
-    np.save(os.path.join(config['global']['path'], config['global']['processed_data_path'], 'labels.npy'), combined_labels)
-
-    # Free up memory
-    del surface_data
-    del upper_data
-    del combined_labels
+    # Save the combined label dataset to a file
+    np.save(os.path.join(config['global']['path'], config['global']
+            ['processed_data_path'], 'labels.npy'), combined_labels)
