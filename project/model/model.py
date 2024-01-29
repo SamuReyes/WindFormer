@@ -234,7 +234,7 @@ class ViViT(nn.Module):
     and aggregation.
     """
 
-    def __init__(self, image_size_3d, patch_size_3d, image_size_2d, patch_size_2d, output_dim, dim=192, depth=4, heads=3, dim_head=64, dropout=0., emb_dropout=0., scale_dim=4):
+    def __init__(self, image_size_3d, patch_size_3d, image_size_2d, patch_size_2d, seq_len, output_dim, dim=192, depth=4, heads=3, dim_head=64, dropout=0., emb_dropout=0., scale_dim=4):
         super().__init__()
 
         # Patch embedding layers for 3D and 2D data
@@ -242,6 +242,10 @@ class ViViT(nn.Module):
             image_size_3d, patch_size_3d, dim)
         self.to_patch_embedding_2d = PatchEmbedding2D(
             image_size_2d, patch_size_2d, dim)
+
+        # Temporal embedding
+        self.temporal_embedding = nn.Parameter(
+            torch.randn(1, seq_len, 1, dim))
 
         # Spatial and temporal transformer layers
         self.space_transformer = Transformer(
@@ -259,6 +263,18 @@ class ViViT(nn.Module):
         # Aggregation layer
         # Adaptive average pooling for aggregation
         self.aggregation = nn.AdaptiveAvgPool1d(1)
+
+        # Reconstruction head
+        """
+        intermediate_dim = dim * 2
+        self.reconstruction_head = nn.Sequential(
+            nn.Linear(dim, intermediate_dim),
+            nn.ReLU(),
+            nn.Dropout(reconstruction_dropout),  # Capa de Dropout
+            # Segunda capa lineal ajustando a la dimensión de salida deseada
+            nn.Linear(intermediate_dim, reduce(mul, output_dim))
+        )
+        """
 
     def create_temporal_attention_mask(self, t, n, device):
         """
@@ -282,6 +298,10 @@ class ViViT(nn.Module):
         x = torch.cat((x_3d, x_2d), dim=2)  # [B, T, N, D]
 
         b, t, n, _ = x.shape
+
+        # Add temporal embedding
+        temp_emb = self.temporal_embedding[:, :t, :, :]
+        x += temp_emb
 
         x = self.dropout(x)
 
