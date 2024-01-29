@@ -108,7 +108,7 @@ def train_model(config: dict):
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
     # Initialize the model and move it to the configured device
-    model = ViViT(image_size_3d, patch_size_3d, image_size_2d, patch_size_2d, output_dim,
+    model = ViViT(image_size_3d, patch_size_3d, image_size_2d, patch_size_2d, sequence_length, output_dim,
                   dim, depth, heads, dim_head, dropout, emb_dropout, scale_dim).to(device)
 
     # Loss function and optimizer setup

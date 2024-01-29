@@ -31,7 +31,7 @@ model:
   delay: 1
 train:
   batch_size: 8
-  sequence_length: 4
+  sequence_length: 4 # seq_len * num_patches = 256
   learning_rate: 0.0001
   epochs: 10
   train: 0.7
