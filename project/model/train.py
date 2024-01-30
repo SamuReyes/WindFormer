@@ -2,6 +2,7 @@ import numpy as np
 import os
 import torch
 import torch.nn.functional as F
+from torch.cuda.amp import GradScaler
 from model.model import ViViT
 from torch.utils.data import Dataset, DataLoader
 
@@ -43,7 +44,8 @@ class CustomDataset(Dataset):
         # Extract sequences for upper and surface data, and the corresponding label
         upper_sequence = self.upper_data[idx: idx + self.sequence_length]
         surface_sequence = self.surface_data[idx: idx + self.sequence_length]
-        label = self.labels[idx + self.sequence_length + self.delay]
+        label = self.labels[idx + self.delay: idx +
+                            self.sequence_length + self.delay]
 
         # Convert numpy arrays to torch tensors and return as a dictionary
         data = {
@@ -76,7 +78,7 @@ def train_model(config: dict):
     heads = config['model']['heads']
     dim_head = config['model']['dim_head']
     dropout = config['model']['dropout']
-    emb_dropout = config['model']['emb_dropout']
+    reconstr_dropout = config['model']['reconstr_dropout']
     scale_dim = config['model']['scale_dim']
     delay = config['model']['delay']
 
@@ -109,7 +111,10 @@ def train_model(config: dict):
 
     # Initialize the model and move it to the configured device
     model = ViViT(image_size_3d, patch_size_3d, image_size_2d, patch_size_2d, sequence_length, output_dim,
-                  dim, depth, heads, dim_head, dropout, emb_dropout, scale_dim).to(device)
+                  dim, depth, heads, dim_head, dropout, reconstr_dropout, scale_dim).to(device)
+
+    # Initialize the gradient scaler for mixed precision training
+    scaler = GradScaler()
 
     # Loss function and optimizer setup
     loss_fn = torch.nn.MSELoss()
@@ -120,14 +125,17 @@ def train_model(config: dict):
         model.train()  # Set model to training mode
         # Training iteration over the dataset
         for data in train_loader:
-            upper, surface, labels = data['upper'].to(
-                device), data['surface'].to(device), data['label'].to(device)
-            outputs = model(upper, surface)
-            loss = loss_fn(outputs, labels)
-
             optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+            # Runs the forward pass under autocast
+            with torch.autocast(device_type='cuda', dtype=torch.float16):
+                upper, surface, labels = data['upper'].to(
+                    device), data['surface'].to(device), data['label'].to(device)
+                outputs = model(upper, surface)
+                loss = loss_fn(outputs, labels)
+
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
 
         # Validation phase
         model.eval()
@@ -135,10 +143,12 @@ def train_model(config: dict):
         with torch.no_grad():
             # Iterate over validation data
             for data in val_loader:
-                upper, surface, labels = data['upper'].to(
-                    device), data['surface'].to(device), data['label'].to(device)
-                outputs = model(upper, surface)
-                val_loss += loss_fn(outputs, labels).item()
+                # Runs the forward pass under autocast
+                with torch.autocast(device_type=device, dtype=torch.float16):
+                    upper, surface, labels = data['upper'].to(
+                        device), data['surface'].to(device), data['label'].to(device)
+                    outputs = model(upper, surface)
+                    val_loss += loss_fn(outputs, labels).item()
             val_loss /= len(val_loader)
 
         # Save the model periodically and print training progress

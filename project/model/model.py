@@ -234,7 +234,7 @@ class ViViT(nn.Module):
     and aggregation.
     """
 
-    def __init__(self, image_size_3d, patch_size_3d, image_size_2d, patch_size_2d, seq_len, output_dim, dim=192, depth=4, heads=3, dim_head=64, dropout=0., emb_dropout=0., scale_dim=4):
+    def __init__(self, image_size_3d, patch_size_3d, image_size_2d, patch_size_2d, seq_len, output_dim, dim=192, depth=4, heads=3, dim_head=64, dropout=0., reconstr_dropout=0., scale_dim=4):
         super().__init__()
 
         # Patch embedding layers for 3D and 2D data
@@ -253,28 +253,15 @@ class ViViT(nn.Module):
         self.temporal_transformer = Transformer(
             dim, depth, heads, dim_head, dim*scale_dim, dropout)
 
-        # Dropout layer for regularization
-        self.dropout = nn.Dropout(emb_dropout)
-
-        # Linear layer for output dimension adjustment
-        self.output_dim = output_dim
-        self.linear = nn.Linear(dim, reduce(mul, self.output_dim))
-
-        # Aggregation layer
-        # Adaptive average pooling for aggregation
-        self.aggregation = nn.AdaptiveAvgPool1d(1)
-
         # Reconstruction head
-        """
         intermediate_dim = dim * 2
+        self.output_dim = output_dim
         self.reconstruction_head = nn.Sequential(
             nn.Linear(dim, intermediate_dim),
             nn.ReLU(),
-            nn.Dropout(reconstruction_dropout),  # Capa de Dropout
-            # Segunda capa lineal ajustando a la dimensión de salida deseada
+            nn.Dropout(reconstr_dropout),
             nn.Linear(intermediate_dim, reduce(mul, output_dim))
         )
-        """
 
     def create_temporal_attention_mask(self, t, n, device):
         """
@@ -317,9 +304,10 @@ class ViViT(nn.Module):
         x = self.temporal_transformer(x, mask)  # [B, T * N, D]
 
         # Reconstruction to output dimensions
-        x = self.linear(x)  # [B, T * N, output_dim]
-        x = x.transpose(1, 2)  # [B, output_dim, T * N]
-        x = self.aggregation(x).squeeze(2)  # [B, prod(output_dim)]
-        x = x.view(-1, *self.output_dim)  # [B, output_dim]
+        x = rearrange(x, 'b (t n) d -> b (t n) d', t=t)  # [B, T * N, D]
+        # [B, T * N, output_dim] # TODO implement patch recovery
+        x = self.reconstruction_head(x)
+        x = x.view(-1, t, n, self.output_dim)  # [B, T, N, output_dim]
 
+        # TODO try classifying instead of regression
         return x
