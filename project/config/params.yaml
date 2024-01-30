@@ -21,17 +21,17 @@ model:
   image_size_2d: [18, 18, 9]
   patch_size_2d: [6, 6]
   output_dim: [10, 18, 18, 2]
-  dim: 768
-  depth: 12
-  heads: 12
-  dim_head: 64
+  dim: 512 #768
+  depth: 6 #12
+  heads: 6 #12
+  dim_head: 32 #64
   dropout: 0.1
-  emb_dropout: 0.1
-  scale_dim: 4
+  reconstr_dropout: 0.1
+  scale_dim: 2 #4
   delay: 1
 train:
   batch_size: 8
-  sequence_length: 4 # seq_len * num_patches = 256
+  sequence_length: 7 # seq_len * num_patches = 256
   learning_rate: 0.0001
   epochs: 10
   train: 0.7
