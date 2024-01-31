@@ -26,12 +26,13 @@ model:
   heads: 6 #12
   dim_head: 32 #64
   dropout: 0.1
+  emb_dropout: 0.1
   reconstr_dropout: 0.1
   scale_dim: 2 #4
   delay: 1
 train:
-  batch_size: 8
-  sequence_length: 7 # seq_len * num_patches = 256
+  batch_size: 16
+  sequence_length: 6 # seq_len * num_patches = 256
   learning_rate: 0.0001
   epochs: 10
   train: 0.7

@@ -186,7 +186,7 @@ class Attention(nn.Module):
 
         # Apply mask if provided, for selective attention
         if mask is not None:
-            dots.masked_fill_(mask == 0, float('-1e20'))
+            dots.masked_fill_(mask == 0, float('-1e4'))
 
         attn = self.attend(dots)  # Compute attention weights
 
@@ -234,7 +234,7 @@ class ViViT(nn.Module):
     and aggregation.
     """
 
-    def __init__(self, image_size_3d, patch_size_3d, image_size_2d, patch_size_2d, seq_len, output_dim, dim=192, depth=4, heads=3, dim_head=64, dropout=0., reconstr_dropout=0., scale_dim=4):
+    def __init__(self, image_size_3d, patch_size_3d, image_size_2d, patch_size_2d, seq_len, output_dim, dim=192, depth=4, heads=3, dim_head=64, dropout=0., emb_dropout=0., reconstr_dropout=0., scale_dim=4):
         super().__init__()
 
         # Patch embedding layers for 3D and 2D data
@@ -247,17 +247,28 @@ class ViViT(nn.Module):
         self.temporal_embedding = nn.Parameter(
             torch.randn(1, seq_len, 1, dim))
 
+        # Dropout layer
+        self.dropout = nn.Dropout(emb_dropout)
+
         # Spatial and temporal transformer layers
         self.space_transformer = Transformer(
             dim, depth, heads, dim_head, dim*scale_dim, dropout)
         self.temporal_transformer = Transformer(
             dim, depth, heads, dim_head, dim*scale_dim, dropout)
 
+        # Calculate the number of patches and the reconstruction head input dimension
+        n_patches_3d = (image_size_3d[0] // patch_size_3d[0]) * (
+            image_size_3d[1] // patch_size_3d[1]) * (image_size_3d[2] // patch_size_3d[2])
+        n_patches_2d = (
+            image_size_2d[0] // patch_size_2d[0]) * (image_size_2d[1] // patch_size_2d[1])
+        total_patches = n_patches_3d + n_patches_2d
+        recon_head_input = total_patches * dim
+
         # Reconstruction head
-        intermediate_dim = dim * 2
+        intermediate_dim = recon_head_input * 2
         self.output_dim = output_dim
         self.reconstruction_head = nn.Sequential(
-            nn.Linear(dim, intermediate_dim),
+            nn.Linear(recon_head_input, intermediate_dim),
             nn.ReLU(),
             nn.Dropout(reconstr_dropout),
             nn.Linear(intermediate_dim, reduce(mul, output_dim))
@@ -304,10 +315,9 @@ class ViViT(nn.Module):
         x = self.temporal_transformer(x, mask)  # [B, T * N, D]
 
         # Reconstruction to output dimensions
-        x = rearrange(x, 'b (t n) d -> b (t n) d', t=t)  # [B, T * N, D]
-        # [B, T * N, output_dim] # TODO implement patch recovery
-        x = self.reconstruction_head(x)
-        x = x.view(-1, t, n, self.output_dim)  # [B, T, N, output_dim]
-
+        x = rearrange(x, 'b (t n) d -> b t (n d)', t=t, n=n)  # [B, T, N * D]
+        x = self.reconstruction_head(x)  # [B, T, output_dim]
+        x = x.view(-1, t, *self.output_dim)  # [B, T, output_dim]
+        # TODO implement patch recovery
         # TODO try classifying instead of regression
         return x
