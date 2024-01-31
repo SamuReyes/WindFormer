@@ -6,7 +6,7 @@ from torch.cuda.amp import GradScaler
 from model.model import ViViT
 from torch.utils.data import Dataset, DataLoader
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class CustomDataset(Dataset):
@@ -78,6 +78,7 @@ def train_model(config: dict):
     heads = config['model']['heads']
     dim_head = config['model']['dim_head']
     dropout = config['model']['dropout']
+    emb_dropout = config['model']['emb_dropout']
     reconstr_dropout = config['model']['reconstr_dropout']
     scale_dim = config['model']['scale_dim']
     delay = config['model']['delay']
@@ -111,7 +112,7 @@ def train_model(config: dict):
 
     # Initialize the model and move it to the configured device
     model = ViViT(image_size_3d, patch_size_3d, image_size_2d, patch_size_2d, sequence_length, output_dim,
-                  dim, depth, heads, dim_head, dropout, reconstr_dropout, scale_dim).to(device)
+                  dim, depth, heads, dim_head, dropout, emb_dropout, reconstr_dropout, scale_dim).to(device)
 
     # Initialize the gradient scaler for mixed precision training
     scaler = GradScaler()
@@ -127,7 +128,7 @@ def train_model(config: dict):
         for data in train_loader:
             optimizer.zero_grad()
             # Runs the forward pass under autocast
-            with torch.autocast(device_type='cuda', dtype=torch.float16):
+            with torch.autocast(device_type=device.type, dtype=torch.float16):
                 upper, surface, labels = data['upper'].to(
                     device), data['surface'].to(device), data['label'].to(device)
                 outputs = model(upper, surface)
@@ -144,7 +145,7 @@ def train_model(config: dict):
             # Iterate over validation data
             for data in val_loader:
                 # Runs the forward pass under autocast
-                with torch.autocast(device_type=device, dtype=torch.float16):
+                with torch.autocast(device_type=device.type, dtype=torch.float16):
                     upper, surface, labels = data['upper'].to(
                         device), data['surface'].to(device), data['label'].to(device)
                     outputs = model(upper, surface)
