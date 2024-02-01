@@ -1,59 +1,10 @@
 import numpy as np
 import os
 import torch
-import torch.nn.functional as F
 from torch.cuda.amp import GradScaler
-from model.model import ViViT
-from torch.utils.data import Dataset, DataLoader
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-
-class CustomDataset(Dataset):
-    """
-    Custom dataset for handling paired upper and surface data along with labels.
-
-    This dataset is designed to work with sequential data, where each sequence 
-    has a specified length and is associated with a delayed label. It's suitable 
-    for time-series predictions where the goal is to predict future values 
-    based on past sequences of data.
-
-    :param upper_data: Numpy array representing 'Upper' data of shape (T, L, W, H, C).
-    :param surface_data: Numpy array representing 'surface' data of shape (T, W, H, C).
-    :param labels: Numpy array representing labels of shape (T, L, W, H, C).
-    :param sequence_length: Integer representing the length of the input sequence.
-    :param delay: Integer representing the delay for the label in time steps.
-    """
-
-    def __init__(self, upper_data, surface_data, labels, sequence_length, delay):
-        self.upper_data = upper_data
-        self.surface_data = surface_data
-        self.labels = labels
-        self.sequence_length = sequence_length
-        self.delay = delay
-
-    def __len__(self):
-        # Calculate the length of the dataset accounting for sequence length and delay
-        return len(self.upper_data) - self.sequence_length - self.delay
-
-    def __getitem__(self, idx):
-        # Ensure that the requested index is within the bounds of the dataset
-        if idx + self.sequence_length + self.delay >= len(self.upper_data):
-            raise IndexError("Index out of range")
-
-        # Extract sequences for upper and surface data, and the corresponding label
-        upper_sequence = self.upper_data[idx: idx + self.sequence_length]
-        surface_sequence = self.surface_data[idx: idx + self.sequence_length]
-        label = self.labels[idx + self.delay: idx +
-                            self.sequence_length + self.delay]
-
-        # Convert numpy arrays to torch tensors and return as a dictionary
-        data = {
-            'upper': torch.from_numpy(upper_sequence).float(),
-            'surface': torch.from_numpy(surface_sequence).float(),
-            'label': torch.from_numpy(label).float()
-        }
-        return data
+from torch.utils.data import DataLoader
+from model.dataset import CustomDataset
+from model.model_instance import init_model, device
 
 
 def train_model(config: dict):
@@ -67,23 +18,9 @@ def train_model(config: dict):
     :param config: Dictionary containing the configuration settings.
     """
 
-    # Extract model and training parameters from the config
-    image_size_3d = config['model']['image_size_3d']
-    patch_size_3d = config['model']['patch_size_3d']
-    image_size_2d = config['model']['image_size_2d']
-    patch_size_2d = config['model']['patch_size_2d']
-    output_dim = config['model']['output_dim']
-    dim = config['model']['dim']
-    depth = config['model']['depth']
-    heads = config['model']['heads']
-    dim_head = config['model']['dim_head']
-    dropout = config['model']['dropout']
-    emb_dropout = config['model']['emb_dropout']
-    reconstr_dropout = config['model']['reconstr_dropout']
-    scale_dim = config['model']['scale_dim']
-    delay = config['model']['delay']
-
+    # Extract training parameters from the config
     sequence_length = config['train']['sequence_length']
+    delay = config['model']['delay']
     batch_size = config['train']['batch_size']
     learning_rate = config['train']['learning_rate']
     epochs = config['train']['epochs']
@@ -110,9 +47,8 @@ def train_model(config: dict):
         upper_val, surface_val, labels_val, sequence_length=sequence_length, delay=delay)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
-    # Initialize the model and move it to the configured device
-    model = ViViT(image_size_3d, patch_size_3d, image_size_2d, patch_size_2d, sequence_length, output_dim,
-                  dim, depth, heads, dim_head, dropout, emb_dropout, reconstr_dropout, scale_dim).to(device)
+    # Initialize the model
+    model = init_model(config)
 
     # Initialize the gradient scaler for mixed precision training
     scaler = GradScaler()

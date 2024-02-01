@@ -1,9 +1,8 @@
-import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn, einsum
 from einops.layers.torch import Rearrange
-from einops import rearrange, repeat
+from einops import rearrange
 from functools import reduce
 from operator import mul
 
