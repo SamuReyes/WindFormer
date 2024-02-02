@@ -1,17 +1,26 @@
 import matplotlib.pyplot as plt
+import os
 
 
-def plot_heatmaps(predictions, ground_truth, seq=0):
+def plot_heatmaps(config: dict, results: list, instance=0, seq=0):
     """
     Plots heatmaps of predictions and ground truth for a given sequence index.
     The plot will have 4 columns (2 for predictions and 2 for ground truth) and a number
     of rows equal to the pressure levels. Each heatmap represents one pressure level.
 
     Parameters:
-    - predictions (np.array): Predictions array with dimensions [batch_size, pressure_levels, height, width, channels].
-    - ground_truth (np.array): Ground truth array with the same dimensions as predictions.
+    - config (dict): Dictionary containing the configuration settings.
+    - results (list): List of dictionaries containing the predictions and ground truth.
+    - instance (int): Instance index to plot.
     - seq (int): Sequence index to plot.
     """
+
+    path = os.path.join(config['global']['path'],
+                        config['global']['reports_path'])
+
+    predictions = results[instance]['prediction']
+    ground_truth = results[instance]['ground_truth']
+
     pressure_levels = predictions.shape[1]
     fig, axs = plt.subplots(pressure_levels, 4, figsize=(8, 20))
 
@@ -47,3 +56,8 @@ def plot_heatmaps(predictions, ground_truth, seq=0):
 
     plt.tight_layout()
     plt.show()
+
+    if (config["plots"]["pred_vs_true"]):
+        path = os.path.join(
+            path, 'heatmaps_inst_{}_seq_{}.png'.format(instance, seq))
+        plt.savefig(path)
