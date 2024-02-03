@@ -1,5 +1,6 @@
 import netCDF4 as nc
 import numpy as np
+import gc
 import matplotlib.pyplot as plt
 import glob
 import os
@@ -163,3 +164,6 @@ def preprocess_data(config: dict):
     np.save(os.path.join(processed_data_path,
             'surface.npy'), combined_surface_data)
     np.save(os.path.join(processed_data_path, 'upper.npy'), combined_upper_data)
+
+    del combined_upper_data
+    del combined_surface_data
