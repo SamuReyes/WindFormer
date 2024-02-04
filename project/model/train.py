@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import torch
+import wandb
 from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader
 from model.dataset import CustomDataset
@@ -89,11 +90,13 @@ def train_model(config: dict):
             val_loss /= len(val_loader)
 
         # Save the model periodically and print training progress
-        if config['train']['save_model']:
+        if config['train']['save_intermediate']:
             torch.save(model.state_dict(), os.path.join(
                 config['global']['path'], config['global']['checkpoints_path'], config['train']['model_name'] + f'_epoch_{epoch+1}.pth'))
         print(
             f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item()}, Val Loss: {val_loss}")
+        wandb.log(
+            {"Epoch": epoch+1, "Train loss": loss.item(), "Val loss": val_loss})
 
     # Save the final model
     if config['train']['save_model']:
