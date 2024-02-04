@@ -35,13 +35,13 @@ train:
   batch_size: 16
   sequence_length: 6 # seq_len * num_patches = 256
   learning_rate: 0.0001
-  epochs: 10
+  epochs: 25
   train: 0.7
   validation: 0.15
   test: 0.15
   save_intermediate: False
   save_model: True
-  model_name: model
+  model_name: model_test
 plots:
   pred_vs_true: True
 
