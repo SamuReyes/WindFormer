@@ -39,9 +39,10 @@ train:
   train: 0.7
   validation: 0.15
   test: 0.15
-  save_intermediate: False
+  log_mid_loss: True
+  save_intermediate_model: False
   save_model: True
-  model_name: model_test
+  model_name: model_test2
 plots:
   pred_vs_true: True
 
