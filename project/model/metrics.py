@@ -1,4 +1,5 @@
 import numpy as np
+import wandb
 
 
 def calculate_rmse(results):
@@ -19,5 +20,7 @@ def calculate_rmse(results):
     # Calculate MSE and then RMSE
     mse = np.mean((predictions - ground_truths) ** 2)
     rmse = np.sqrt(mse)
+
+    wandb.log({"rmse": rmse})
 
     return rmse
