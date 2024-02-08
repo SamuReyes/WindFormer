@@ -34,7 +34,7 @@ model:
 train:
   batch_size: 16
   sequence_length: 6 # seq_len * num_patches = 256
-  learning_rate: 0.0001
+  learning_rate: 0.001
   epochs: 25
   train: 0.7
   validation: 0.15
