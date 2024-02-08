@@ -70,6 +70,7 @@ def train_model(config: dict):
     # Loss function and optimizer setup
     loss_fn = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    # TODO scheduler: linear decay (LINEARLR torch)
 
     # Training loop
     for epoch in range(epochs):
