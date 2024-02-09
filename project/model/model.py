@@ -7,7 +7,6 @@ from einops import rearrange
 from functools import reduce
 from operator import mul
 
-GAMMA = np.float16('-inf')
 
 class PatchEmbedding3D(nn.Module):
     """
@@ -187,11 +186,9 @@ class Attention(nn.Module):
 
         # Apply mask if provided, for selective attention
         if mask is not None:
-            dots.masked_fill_(mask == 0, GAMMA)
+            dots.masked_fill_(mask == 0, np.float16(np.NINF))
 
         attn = self.attend(dots)  # Compute attention weights
-
-        print(attn)
 
         out = einsum('b h i j, b h j d -> b h i d', attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')

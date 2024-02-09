@@ -2,10 +2,44 @@ import numpy as np
 import os
 import torch
 import wandb
+from torch.optim.lr_scheduler import _LRScheduler
 from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader
 from model.dataset import CustomDataset
 from model.model_instance import init_model, device
+from model.scheduler import WarmUpScheduler, LinearLR
+
+
+class WarmupInverseSqrtDecayLR(_LRScheduler):
+    """ 
+    Learning rate scheduler that implements a two-phase adjustment strategy:
+    a linear increase during warmup followed by an inverse square root decrease.
+
+    Parameters:
+    - optimizer (Optimizer): The optimizer to wrap.
+    - warmup_steps (int): Steps for the linear warmup phase.
+    - final_steps (int): Total steps for training, affecting the decay phase.
+    - last_epoch (int): Last epoch index for resuming training (default: -1).
+    - verbose (bool): Enables verbose output (default: False).
+    """
+
+    def __init__(self, optimizer, warmup_steps, final_steps, last_epoch=-1, verbose=False):
+        self.warmup_steps = warmup_steps
+        self.final_steps = final_steps
+        super(WarmupInverseSqrtDecayLR, self).__init__(
+            optimizer, last_epoch, verbose)
+
+    def get_lr(self):
+        if self.last_epoch < self.warmup_steps:
+            # Lineal warmup
+            lr_scale = self.last_epoch / self.warmup_steps
+            print("Warmup phase:", lr_scale)
+        else:
+            # Decay phase
+            lr_scale = (self.warmup_steps ** 0.5) * (self.last_epoch ** -0.5)
+            print("Decay phase:", lr_scale)
+
+        return [base_lr * lr_scale for base_lr in self.base_lrs]
 
 
 def validate_model(model, val_loader, loss_fn):
@@ -34,7 +68,6 @@ def train_model(config: dict):
 
     # Extract training parameters from the config
     sequence_length = config['train']['sequence_length']
-    delay = config['model']['delay']
     batch_size = config['train']['batch_size']
     learning_rate = config['train']['learning_rate']
     epochs = config['train']['epochs']
@@ -53,42 +86,63 @@ def train_model(config: dict):
 
     # Create dataset and dataloader for training and validation
     train_dataset = CustomDataset(
-        upper_train, surface_train, labels_train, sequence_length=sequence_length, delay=delay)
+        upper_train, surface_train, labels_train, sequence_length=sequence_length)
     train_loader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=False)
 
     val_dataset = CustomDataset(
-        upper_val, surface_val, labels_val, sequence_length=sequence_length, delay=delay)
+        upper_val, surface_val, labels_val, sequence_length=sequence_length)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
     # Initialize the model
     model = init_model(config)
 
-    # Initialize the gradient scaler for mixed precision training
+    # Initialize the gradient scaler for mixed precision training and gradient accumulation
     scaler = GradScaler()
+    iters_to_accumulate = config['train']['iters_to_accumulate']
 
     # Loss function and optimizer setup
     loss_fn = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    # TODO scheduler: linear decay (LINEARLR torch)
+
+    # Scheduler setup
+    total_batches = len(train_loader)
+    scheduler = LinearLR(optimizer, start_factor=1.0, end_factor=config['train']['scheduler']['end_factor'],
+                         total_iters=config['train']['scheduler']['total_iters'])  # TODO: Try to use torch implementation
+    # TODO: Check warmup scheduler
+    """ 
+    steps_per_epoch = total_batches//iters_to_accumulate
+    final_steps = steps_per_epoch * epochs
+    warmup_steps = int(final_steps * config['train']['warmup_ratio'])
+    lr_scheduler = LinearLR(optimizer, start_factor=1.0,
+                            end_factor=0.001, total_iters=10)
+    scheduler = WarmUpScheduler(optimizer, lr_scheduler, len_loader=total_batches,
+                                warmup_steps=warmup_steps, warmup_start_lr=0.0001)
+    """
+    best_val_loss = np.float16(np.inf)
 
     # Training loop
     for epoch in range(epochs):
-        model.train()  # Set model to training mode
         # Training iteration over the dataset
-        total_batches = len(train_loader)
+        model.train()
+        wandb.log({"LR": optimizer.param_groups[0]['lr']})
+        # ! Remove this line
+        print("Learning rate:", optimizer.param_groups[0]['lr'])
         for i, data in enumerate(train_loader):
-            optimizer.zero_grad()
             # Runs the forward pass under autocast
             with torch.autocast(device_type=device.type, dtype=torch.float16):
                 upper, surface, labels = data['upper'].to(
                     device), data['surface'].to(device), data['label'].to(device)
                 outputs = model(upper, surface)
                 loss = loss_fn(outputs, labels)
+                loss = loss / iters_to_accumulate
 
             scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
+
+            if (i + 1) % iters_to_accumulate == 0:
+                scaler.step(optimizer)
+                scaler.update()
+                optimizer.zero_grad()
 
             # Monitor validation loss at the midpoint of the epoch
             if (i == total_batches // 2 and config['train']['log_mid_loss']):
@@ -98,6 +152,9 @@ def train_model(config: dict):
                 wandb.log(
                     {"Epoch": epoch + 0.5, "Val loss": mid_epoch_val_loss})
 
+        # Update learning rate
+        scheduler.step()
+
         # End-of-epoch validation
         val_loss = validate_model(model, val_loader, loss_fn)
         print(
@@ -106,9 +163,10 @@ def train_model(config: dict):
             {"Epoch": epoch+1, "Train loss": loss.item(), "Val loss": val_loss})
 
         # Save intermediate model
-        if config['train']['save_intermediate_model']:
+        if config['train']['save_model'] and best_val_loss > val_loss:
+            best_val_loss = val_loss
             torch.save(model.state_dict(), os.path.join(
-                config['global']['path'], config['global']['checkpoints_path'], config['train']['model_name'] + f'_epoch_{epoch+1}.pth'))
+                config['global']['path'], config['global']['checkpoints_path'], config['train']['model_name'] + f'_best_val.pth'))
 
     # Save final model
     if config['train']['save_model']:

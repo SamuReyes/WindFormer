@@ -33,7 +33,7 @@ def infer(config):
 
     # Create dataset and dataloader for testing
     test_dataset = CustomDataset(upper_test, surface_test, labels_test,
-                                 sequence_length=config['train']['sequence_length'], delay=config['model']['delay'])
+                                 sequence_length=config['train']['sequence_length'])
     test_loader = DataLoader(
         test_dataset, batch_size=config['train']['batch_size'], shuffle=False)
 
