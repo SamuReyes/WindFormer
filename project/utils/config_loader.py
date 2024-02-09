@@ -24,9 +24,9 @@ def assign_config(wandb_config, config, parent_key='', target_keys=['preprocessi
         if key in target_keys or parent_key in target_keys:
             full_key = f"{parent_key}.{key}" if parent_key else key
             if isinstance(value, dict):
-                assign_config_recursively(
+                assign_config(
                     wandb_config, value, full_key, target_keys)
             else:
                 setattr(wandb_config, str(key), value)
         elif isinstance(value, dict):
-            assign_config_recursively(wandb_config, value, key, target_keys)
+            assign_config(wandb_config, value, key, target_keys)

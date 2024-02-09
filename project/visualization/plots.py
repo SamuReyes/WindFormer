@@ -61,3 +61,5 @@ def plot_heatmaps(config: dict, results: list, instance=0, seq=0):
         path = os.path.join(
             path, 'heatmaps_inst_{}_seq_{}.png'.format(instance, seq))
         plt.savefig(path)
+
+    return fig

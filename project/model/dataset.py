@@ -15,30 +15,27 @@ class CustomDataset(Dataset):
     :param surface_data: Numpy array representing 'surface' data of shape (T, W, H, C).
     :param labels: Numpy array representing labels of shape (T, L, W, H, C).
     :param sequence_length: Integer representing the length of the input sequence.
-    :param delay: Integer representing the delay for the label in time steps.
     """
 
-    def __init__(self, upper_data, surface_data, labels, sequence_length, delay):
+    def __init__(self, upper_data, surface_data, labels, sequence_length):
         self.upper_data = upper_data
         self.surface_data = surface_data
         self.labels = labels
         self.sequence_length = sequence_length
-        self.delay = delay
 
     def __len__(self):
-        # Calculate the length of the dataset accounting for sequence length and delay
-        return len(self.upper_data) - self.sequence_length - self.delay
+        # Calculate the length of the dataset accounting for sequence length
+        return len(self.upper_data) - self.sequence_length - 1
 
     def __getitem__(self, idx):
         # Ensure that the requested index is within the bounds of the dataset
-        if idx + self.sequence_length + self.delay >= len(self.upper_data):
+        if idx + self.sequence_length + 1 >= len(self.upper_data):
             raise IndexError("Index out of range")
 
         # Extract sequences for upper and surface data, and the corresponding label
         upper_sequence = self.upper_data[idx: idx + self.sequence_length]
         surface_sequence = self.surface_data[idx: idx + self.sequence_length]
-        label = self.labels[idx + self.delay: idx +
-                            self.sequence_length + self.delay]
+        label = self.labels[idx + 1: idx + self.sequence_length + 1]
 
         # Convert numpy arrays to torch tensors and return as a dictionary
         data = {
