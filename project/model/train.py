@@ -3,6 +3,7 @@ import os
 import torch
 import wandb
 from torch.optim.lr_scheduler import _LRScheduler
+from transformers import get_linear_schedule_with_warmup
 from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader
 from model.dataset import CustomDataset
@@ -107,27 +108,19 @@ def train_model(config: dict):
 
     # Scheduler setup
     total_batches = len(train_loader)
-    scheduler = LinearLR(optimizer, start_factor=1.0, end_factor=config['train']['scheduler']['end_factor'],
-                         total_iters=config['train']['scheduler']['total_iters'])  # TODO: Try to use torch implementation
-    # TODO: Check warmup scheduler
-    """ 
     steps_per_epoch = total_batches//iters_to_accumulate
     final_steps = steps_per_epoch * epochs
-    warmup_steps = int(final_steps * config['train']['warmup_ratio'])
-    lr_scheduler = LinearLR(optimizer, start_factor=1.0,
-                            end_factor=0.001, total_iters=10)
-    scheduler = WarmUpScheduler(optimizer, lr_scheduler, len_loader=total_batches,
-                                warmup_steps=warmup_steps, warmup_start_lr=0.0001)
-    """
+    warmup_ratio = config['train']['warmup_ratio']/iters_to_accumulate
+    warmup_steps = int(final_steps * warmup_ratio)
+    scheduler = get_linear_schedule_with_warmup(
+        optimizer, num_warmup_steps=warmup_steps, num_training_steps=final_steps)
     best_val_loss = np.float16(np.inf)
 
     # Training loop
     for epoch in range(epochs):
         # Training iteration over the dataset
         model.train()
-        wandb.log({"LR": optimizer.param_groups[0]['lr']})
-        # ! Remove this line
-        print("Learning rate:", optimizer.param_groups[0]['lr'])
+
         for i, data in enumerate(train_loader):
             # Runs the forward pass under autocast
             with torch.autocast(device_type=device.type, dtype=torch.float16):
@@ -142,7 +135,12 @@ def train_model(config: dict):
             if (i + 1) % iters_to_accumulate == 0:
                 scaler.step(optimizer)
                 scaler.update()
+                scheduler.step()  # Update learning rate
+
                 optimizer.zero_grad()
+
+            if i % 100 == 0:
+                wandb.log({"Step": i, "LR": optimizer.param_groups[0]['lr']})
 
             # Monitor validation loss at the midpoint of the epoch
             if (i == total_batches // 2 and config['train']['log_mid_loss']):
@@ -151,9 +149,6 @@ def train_model(config: dict):
                     f"Epoch [{epoch+0.5}/{epochs}], Val Loss: {mid_epoch_val_loss}")
                 wandb.log(
                     {"Epoch": epoch + 0.5, "Val loss": mid_epoch_val_loss})
-
-        # Update learning rate
-        scheduler.step()
 
         # End-of-epoch validation
         val_loss = validate_model(model, val_loader, loss_fn)
@@ -166,9 +161,4 @@ def train_model(config: dict):
         if config['train']['save_model'] and best_val_loss > val_loss:
             best_val_loss = val_loss
             torch.save(model.state_dict(), os.path.join(
-                config['global']['path'], config['global']['checkpoints_path'], config['train']['model_name'] + f'_best_val.pth'))
-
-    # Save final model
-    if config['train']['save_model']:
-        torch.save(model.state_dict(), os.path.join(
-            config['global']['path'], config['global']['checkpoints_path'], config['train']['model_name'] + '.pth'))
+                config['global']['path'], config['global']['checkpoints_path'], config['train']['model_name'] + '.pth'))
