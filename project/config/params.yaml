@@ -10,9 +10,9 @@ preprocessing:
   upper_var_names: ['time', 'u', 'v', 'q', 't', 'd', 'z', 'w', 'vo']
   surface_var_names: ['time', 'u100', 'v100', 'u10', 'v10', 'd2m', 't2m', 'z', 'msl', 'i10fg']
   limits:
-    latitude:  [10, 27]
-    longitude: [18, 35]
-    levels: [0, 8]
+    latitude:  [10, 28]
+    longitude: [18, 36]
+    levels: [0, 9]
 barajas:
   latitude: 40.5
   longitude: -3.5

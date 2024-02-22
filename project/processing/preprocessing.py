@@ -1,27 +1,11 @@
 import netCDF4 as nc
 import numpy as np
-import gc
-import matplotlib.pyplot as plt
 import glob
 import os
-
-
-def dictionary_to_array(dictionary):
-    """
-    Converts a dictionary of lists into a single NumPy array.
-
-    Parameters:
-    - dictionary (dict): The dictionary to convert.
-
-    Returns:
-    - numpy.ndarray: A single array with the last dimension corresponding to the
-                     dictionary's keys.
-    """
-
-    array = np.stack([dictionary[key] for key in dictionary.keys()], axis=-1)
-
-    return array
-
+import pickle
+from calendar import monthrange
+from datetime import datetime, timedelta
+from utils.utils import *
 
 def extract_data(path: str, var_names: list, level: str, levels: list, latitude: list, longitude: list):
     """
@@ -62,11 +46,11 @@ def extract_data(path: str, var_names: list, level: str, levels: list, latitude:
                 else:
                     # Slice data according to specified levels and geographical bounds
                     if level == 'upper':
-                        data[var].append(nc_file.variables[var][:, levels[0]:levels[1]+1,
-                                         latitude[0]:latitude[1]+1, longitude[0]:longitude[1]+1])
+                        data[var].append(nc_file.variables[var][:, levels[0]:levels[1],
+                                         latitude[0]:latitude[1], longitude[0]:longitude[1]])
                     elif level == 'surface':
                         data[var].append(
-                            nc_file.variables[var][:, latitude[0]:latitude[1]+1, longitude[0]:longitude[1]+1])
+                            nc_file.variables[var][:, latitude[0]:latitude[1], longitude[0]:longitude[1]])
 
     # Concatenate data for each variable
     for var in var_names:
@@ -159,6 +143,14 @@ def preprocess_data(config: dict):
 
     del upper_data
     del surface_data
+
+    with open(os.path.join(constants_path, 'climatologies.pickle'), 'rb') as handle:
+        data_loaded = pickle.load(handle)
+
+    surface_climatologies_loaded = data_loaded['surface_climatologies']
+    upper_climatologies_loaded = data_loaded['upper_climatologies']
+
+    #! Antes de borrar el time, deberiamos sacarlo para poder calcular el mes y restarle la climatología
 
     # Save data
     np.save(os.path.join(processed_data_path,
