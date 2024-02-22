@@ -88,7 +88,7 @@ def save_constants(raw_data_path: str, constants_path: str, levels: list, latitu
 
     # Process and save constants from a surface level file
     with nc.Dataset(surface_files[-1], 'r') as nc_file:
-        np.save(os.path.join(constants_path, 'land_sea_mask.npy'),
+        np.save(os.path.join(constants_path, 'land_sea_mask.npy'), 
                 nc_file.variables["lsm"][:, latitude[0]:latitude[1]+1, longitude[0]:longitude[1]+1].filled(np.nan).astype(np.float32))
 
 
@@ -104,21 +104,18 @@ def preprocess_data(config: dict):
     # Extract configuration settings
     upper_var_names = config['preprocessing']['upper_var_names']
     surface_var_names = config['preprocessing']['surface_var_names']
-    raw_data_path = os.path.join(
-        config['global']['path'], config['global']['raw_data_path'])
-    constants_path = os.path.join(
-        config['global']['path'], config['global']['constants_path'])
-    processed_data_path = os.path.join(
-        config['global']['path'], config['global']['processed_data_path'])
-
-    # Ensure output directories exist
-    os.makedirs(processed_data_path, exist_ok=True)
-    os.makedirs(constants_path, exist_ok=True)
-
+    raw_data_path = os.path.join(config['global']['path'], config['global']['raw_data_path'])
+    constants_path = os.path.join(config['global']['path'], config['global']['constants_path'])
+    processed_data_path = os.path.join(config['global']['path'], config['global']['processed_data_path'])
+    
     # Extraction bounds
     longitude = config['preprocessing']['limits']['longitude']
     latitude = config['preprocessing']['limits']['latitude']
     levels = config['preprocessing']['limits']['levels']
+
+    # Ensure output directories exist
+    os.makedirs(processed_data_path, exist_ok=True)
+    os.makedirs(constants_path, exist_ok=True)
 
     # Extract data
     upper_data = extract_data(
@@ -128,8 +125,8 @@ def preprocess_data(config: dict):
 
     # Save constants and time
     save_constants(raw_data_path, constants_path, levels, latitude, longitude)
-    np.save(os.path.join(processed_data_path, 'time.npy'),
-            upper_data['time'].astype(np.uint32))
+    time = upper_data['time']
+    np.save(os.path.join(processed_data_path, 'time.npy'), time.astype(np.uint32))
 
     del upper_data['time']
     del surface_data['time']
@@ -144,17 +141,26 @@ def preprocess_data(config: dict):
     del upper_data
     del surface_data
 
+    # Remove seasonality
     with open(os.path.join(constants_path, 'climatologies.pickle'), 'rb') as handle:
-        data_loaded = pickle.load(handle)
+        climatologies = pickle.load(handle)
 
-    surface_climatologies_loaded = data_loaded['surface_climatologies']
-    upper_climatologies_loaded = data_loaded['upper_climatologies']
+    surface_climatologies = climatologies['surface_climatologies']
+    upper_climatologies = climatologies['upper_climatologies']
 
-    #! Antes de borrar el time, deberiamos sacarlo para poder calcular el mes y restarle la climatología
+    for i, time_step in enumerate(time):
+        month = hour_to_datetime(time_step).month
+        day = hour_to_datetime(time_step).day - 1 # Adjust for 0-based indexing
+
+        combined_upper_data[i] -= upper_climatologies[month][day]
+        combined_surface_data[i] -= surface_climatologies[month][day]
+
+    del surface_climatologies
+    del upper_climatologies
+    del time
 
     # Save data
-    np.save(os.path.join(processed_data_path,
-            'surface.npy'), combined_surface_data)
+    np.save(os.path.join(processed_data_path, 'surface.npy'), combined_surface_data)
     np.save(os.path.join(processed_data_path, 'upper.npy'), combined_upper_data)
 
     del combined_upper_data

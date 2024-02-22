@@ -40,6 +40,6 @@ def hour_to_datetime(hour: int):
     - datetime.datetime: The corresponding datetime object.
     """
     base_date = datetime(1900, 1, 1, 0, 0, 0)
-    result_date = base_date + timedelta(hours=hour)
+    result_date = base_date + timedelta(hours=int(hour))
 
     return result_date
