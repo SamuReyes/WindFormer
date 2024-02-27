@@ -2,6 +2,7 @@ import numpy as np
 import os
 import torch
 import wandb
+import time
 from torch.optim.lr_scheduler import _LRScheduler
 from transformers import get_linear_schedule_with_warmup
 from torch.cuda.amp import GradScaler
@@ -120,6 +121,7 @@ def train_model(config: dict):
     for epoch in range(epochs):
         # Training iteration over the dataset
         model.train()
+        t1 = time.time()
 
         for i, data in enumerate(train_loader):
             # Runs the forward pass under autocast
@@ -152,10 +154,11 @@ def train_model(config: dict):
 
         # End-of-epoch validation
         val_loss = validate_model(model, val_loader, loss_fn)
+        t2 = time.time()
         print(
-            f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item()}, Val Loss: {val_loss}")
+            f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item()}, Val Loss: {val_loss}, Time: {round((t2-t1)/60, 2)}")
         wandb.log(
-            {"Epoch": epoch+1, "Train loss": loss.item(), "Val loss": val_loss})
+            {"Epoch": epoch+1, "Train loss": loss.item(), "Val loss": val_loss, "Time": round((t2-t1)/60, 2)})
 
         # Save intermediate model
         if config['train']['save_model'] and best_val_loss > val_loss:
