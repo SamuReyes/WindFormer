@@ -21,7 +21,7 @@ model:
   patch_size_3d: [3, 6, 6]
   image_size_2d: [18, 18, 9]
   patch_size_2d: [6, 6]
-  output_dim: [10, 18, 18, 2]
+  output_dim: [11, 18, 18, 2]
   dim: 512 #512 / 768
   depth: 6 #6 / 12
   heads: 6 #6 / 12
