@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+from torch.nn import MultiheadAttention
 import numpy as np
 from torch import nn, einsum
 from einops.layers.torch import Rearrange
@@ -158,7 +159,7 @@ class Attention(nn.Module):
     This module can apply a mask to the attention matrix, allowing for 
     operations like masked attention in transformer models.
     """
-
+    #TODO: use pytorch implementation of multihead attention
     def __init__(self, dim, heads=8, dim_head=64, dropout=0.):
         super().__init__()
         inner_dim = dim_head * heads
@@ -177,7 +178,7 @@ class Attention(nn.Module):
             nn.Dropout(dropout)
         ) if project_out else nn.Identity()
 
-    def forward(self, x, mask=None):
+    def forward(self, x, attn_mask=None):
         b, n, _, h = *x.shape, self.heads
         qkv = self.to_qkv(x).chunk(3, dim=-1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=h), qkv)
@@ -185,8 +186,8 @@ class Attention(nn.Module):
         dots = einsum('b h i d, b h j d -> b h i j', q, k) * self.scale
 
         # Apply mask if provided, for selective attention
-        if mask is not None:
-            dots.masked_fill_(mask == 0, np.float16(np.NINF))
+        if attn_mask is not None:
+            dots.masked_fill_(attn_mask == 0, np.float16(np.NINF))
 
         attn = self.attend(dots)  # Compute attention weights
 
@@ -212,14 +213,14 @@ class Transformer(nn.Module):
         # Create transformer layers (depth number of times)
         for _ in range(depth):
             self.layers.append(nn.ModuleList([
-                PreNorm(dim, Attention(dim, heads=heads,
-                        dim_head=dim_head, dropout=dropout)),
+                #PreNorm(dim, MultiheadAttention(embed_dim=dim, num_heads=heads, dropout=dropout)),
+                PreNorm(dim, Attention(dim, heads=heads, dim_head=dim_head, dropout=dropout)),
                 PreNorm(dim, FeedForward(dim, mlp_dim, dropout=dropout))
             ]))
 
     def forward(self, x, mask=None):
         for attn, ff in self.layers:
-            x = attn(x, mask) + x  # Apply attention and add residual
+            x = attn(x, attn_mask = mask) + x  # Apply attention and add residual
             x = ff(x) + x          # Apply feed-forward and add residual
         return self.norm(x)        # Apply final layer normalization
 
