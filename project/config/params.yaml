@@ -31,18 +31,18 @@ model:
   reconstr_dropout: 0.1
   scale_dim: 2 #2 / 4
 train:
-  batch_size: 16
+  batch_size: 12
   iters_to_accumulate: 2
   sequence_length: 6 # seq_len * num_patches = 256
-  learning_rate: 0.001
-  warmup_ratio: 0.06 
-  epochs: 30
+  learning_rate: 0.0001
+  warmup_ratio: 0 
+  epochs: 70
   train: 0.7
   validation: 0.15
   test: 0.15
   log_mid_loss: True
   save_model: True
-  model_name: model_2
+  model_name: model_8
 plots:
   pred_vs_true: True
 

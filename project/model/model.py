@@ -122,11 +122,11 @@ class PreNorm(nn.Module):
         # Wrapped transformer module (e.g., Attention or FeedForward)
         self.fn = fn
 
-    def forward(self, x, mask=None):
+    def forward(self, x, attn_mask=None):
         # Apply normalization before the transformer module
         # If the module is Attention, it also handles the mask
         if isinstance(self.fn, Attention):
-            return self.fn(self.norm(x), mask=mask)
+            return self.fn(self.norm(x), attn_mask=attn_mask)
         else:
             return self.fn(self.norm(x))
 
@@ -160,7 +160,8 @@ class Attention(nn.Module):
     This module can apply a mask to the attention matrix, allowing for 
     operations like masked attention in transformer models.
     """
-    #TODO: use pytorch implementation of multihead attention
+    # TODO: use pytorch implementation of multihead attention
+
     def __init__(self, dim, heads=8, dim_head=64, dropout=0.):
         super().__init__()
         inner_dim = dim_head * heads
@@ -184,18 +185,16 @@ class Attention(nn.Module):
         qkv = self.to_qkv(x).chunk(3, dim=-1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=h), qkv)
 
-        #dots = einsum('b h i d, b h j d -> b h i j', q, k) * self.scale
+        dots = einsum('b h i d, b h j d -> b h i j', q, k) * self.scale
 
         # Apply mask if provided, for selective attention
-        #if attn_mask is not None:
-            #dots.masked_fill_(attn_mask == 0, np.float16(np.NINF))
+        if attn_mask is not None:
+            dots.masked_fill_(attn_mask == 0, np.float16(np.NINF))
 
-        #attn = self.attend(dots)  # Compute attention weights
+        attn = self.attend(dots)  # Compute attention weights
 
-        #out = einsum('b h i j, b h j d -> b h i d', attn, v)
-        #out = rearrange(out, 'b h n d -> b n (h d)')
-
-        out = scaled_dot_product_attention(q, k, v, attn_mask, self.scale)
+        out = einsum('b h i j, b h j d -> b h i d', attn, v)
+        out = rearrange(out, 'b h n d -> b n (h d)')
 
         return self.to_out(out)  # Return the final output
 
@@ -216,14 +215,16 @@ class Transformer(nn.Module):
         # Create transformer layers (depth number of times)
         for _ in range(depth):
             self.layers.append(nn.ModuleList([
-                #PreNorm(dim, MultiheadAttention(embed_dim=dim, num_heads=heads, dropout=dropout)),
-                PreNorm(dim, Attention(dim, heads=heads, dim_head=dim_head, dropout=dropout)),
+                # PreNorm(dim, MultiheadAttention(embed_dim=dim, num_heads=heads, dropout=dropout)),
+                PreNorm(dim, Attention(dim, heads=heads,
+                        dim_head=dim_head, dropout=dropout)),
                 PreNorm(dim, FeedForward(dim, mlp_dim, dropout=dropout))
             ]))
 
-    def forward(self, x, mask=None):
+    def forward(self, x, attn_mask=None):
         for attn, ff in self.layers:
-            x = attn(x, attn_mask = mask) + x  # Apply attention and add residual
+            # Apply attention and add residual
+            x = attn(x, attn_mask=attn_mask) + x
             x = ff(x) + x          # Apply feed-forward and add residual
         return self.norm(x)        # Apply final layer normalization
 
@@ -313,10 +314,10 @@ class ViViT(nn.Module):
         x = rearrange(x, '(b t) n d -> b t n d', b=b)  # [B, T, N, D]
 
         # Temporal transformer processing
-        mask = self.create_temporal_attention_mask(
+        attn_mask = self.create_temporal_attention_mask(
             t, n, device=x.device)  # [T * N, T * N]
         x = rearrange(x, 'b t n d -> b (t n) d')  # [B, T * N, D]
-        x = self.temporal_transformer(x, mask)  # [B, T * N, D]
+        x = self.temporal_transformer(x, attn_mask)  # [B, T * N, D]
 
         # Reconstruction to output dimensions
         x = rearrange(x, 'b (t n) d -> b t (n d)', t=t, n=n)  # [B, T, N * D]
