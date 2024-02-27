@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+from torch.nn.functional import scaled_dot_product_attention
 from torch.nn import MultiheadAttention
 import numpy as np
 from torch import nn, einsum
@@ -183,16 +184,18 @@ class Attention(nn.Module):
         qkv = self.to_qkv(x).chunk(3, dim=-1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=h), qkv)
 
-        dots = einsum('b h i d, b h j d -> b h i j', q, k) * self.scale
+        #dots = einsum('b h i d, b h j d -> b h i j', q, k) * self.scale
 
         # Apply mask if provided, for selective attention
-        if attn_mask is not None:
-            dots.masked_fill_(attn_mask == 0, np.float16(np.NINF))
+        #if attn_mask is not None:
+            #dots.masked_fill_(attn_mask == 0, np.float16(np.NINF))
 
-        attn = self.attend(dots)  # Compute attention weights
+        #attn = self.attend(dots)  # Compute attention weights
 
-        out = einsum('b h i j, b h j d -> b h i d', attn, v)
-        out = rearrange(out, 'b h n d -> b n (h d)')
+        #out = einsum('b h i j, b h j d -> b h i d', attn, v)
+        #out = rearrange(out, 'b h n d -> b n (h d)')
+
+        out = scaled_dot_product_attention(q, k, v, attn_mask, self.scale)
 
         return self.to_out(out)  # Return the final output
 
