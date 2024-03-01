@@ -13,6 +13,7 @@ preprocessing:
     latitude:  [10, 28]
     longitude: [18, 36]
     levels: [0, 9]
+    years: [2006, 2017]
 barajas:
   latitude: 40.5
   longitude: -3.5
