@@ -1,43 +1,56 @@
 import torch
+import itertools
+import h5py
+import torch
 from torch.utils.data import Dataset
 
 
-class CustomDataset(Dataset):
+class HDF5CustomDataset(Dataset):
     """
-    Custom dataset for handling paired upper and surface data along with labels.
-
-    This dataset is designed to work with sequential data, where each sequence 
-    has a specified length and is associated with a delayed label. It's suitable 
-    for time-series predictions where the goal is to predict future values 
-    based on past sequences of data.
-
-    :param upper_data: Numpy array representing 'Upper' data of shape (T, L, W, H, C).
-    :param surface_data: Numpy array representing 'surface' data of shape (T, W, H, C).
-    :param labels: Numpy array representing labels of shape (T, L, W, H, C).
-    :param sequence_length: Integer representing the length of the input sequence.
+    Custom dataset for handling data stored in an HDF5 file.
+    This version allows specifying which years to include and handles varying lengths due to leap years.
     """
 
-    def __init__(self, upper_data, surface_data, labels, sequence_length):
-        self.upper_data = upper_data
-        self.surface_data = surface_data
-        self.labels = labels
+    def __init__(self, hdf5_path, sequence_length, years=None):
+        self.hdf5_path = hdf5_path
         self.sequence_length = sequence_length
 
+        # Open the HDF5 file and get the list of years, filtered by the ones provided if any
+        with h5py.File(self.hdf5_path, 'r') as file:
+            self.years = years
+
+            # Calculate lengths per year
+            self.lengths_per_year = [file[year]['upper']['data'].shape[0] -
+                                     (self.sequence_length + 1) for i, year in enumerate(self.years)]
+
+        # Calculate the total length
+        self.total_length = sum(self.lengths_per_year)
+
+        # Pre-calculate the cumulative sum of lengths to help with index mapping
+        self.cumulative_lengths = [
+            0] + list(itertools.accumulate(self.lengths_per_year))
+
     def __len__(self):
-        # Calculate the length of the dataset accounting for sequence length
-        return len(self.upper_data) - self.sequence_length - 1
+        return self.total_length
 
     def __getitem__(self, idx):
-        # Ensure that the requested index is within the bounds of the dataset
-        if idx + self.sequence_length + 1 >= len(self.upper_data):
-            raise IndexError("Index out of range")
+        # Find which year this idx falls into, adjusted for sequence length
+        year_idx = next(i for i, total in enumerate(
+            self.cumulative_lengths) if idx < total) - 1
+        within_year_idx = idx - self.cumulative_lengths[year_idx]
 
-        # Extract sequences for upper and surface data, and the corresponding label
-        upper_sequence = self.upper_data[idx: idx + self.sequence_length]
-        surface_sequence = self.surface_data[idx: idx + self.sequence_length]
-        label = self.labels[idx + 1: idx + self.sequence_length + 1]
+        # Open the HDF5 file and extract the sequences and label
+        with h5py.File(self.hdf5_path, 'r') as file:
+            year_key = self.years[year_idx]
 
-        # Convert numpy arrays to torch tensors and return as a dictionary
+            upper_sequence = file[year_key]['upper']['data'][within_year_idx:
+                                                             within_year_idx + self.sequence_length]
+            surface_sequence = file[year_key]['surface']['data'][within_year_idx:
+                                                                 within_year_idx + self.sequence_length]
+            label = file[year_key]['labels'][within_year_idx +
+                                             1: within_year_idx + self.sequence_length + 1]
+
+        # Convert to torch tensors
         data = {
             'upper': torch.from_numpy(upper_sequence).float(),
             'surface': torch.from_numpy(surface_sequence).float(),

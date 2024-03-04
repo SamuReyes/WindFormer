@@ -5,19 +5,20 @@ import re
 import os
 import pickle
 from calendar import monthrange
-from utils.utils import *
+from utils.utils import is_leap_year
+
 
 def get_climatology(file, longitude, latitude, levels, level, vars):
     """
     Extracts the climatology from a month file
-    
+
     Parameters:
     - file (str): The file path to extract the climatology from.
 
     Returns:
     - numpy.ndarray: The climatology data.
     """
-    
+
     data = xr.open_dataset(file)
 
     # Select the region of interest
@@ -42,7 +43,7 @@ def get_climatology(file, longitude, latitude, levels, level, vars):
 
     # If not a leap year, extend february to 29 days
     match = re.search(r'/(\d{4})-02-(surface|upper)\.nc$', file)
-    
+
     if match and not is_leap_year(int(match.group(1))):
         last_day = climatology[-1]
         last_day_expanded = np.expand_dims(last_day, axis=0)
@@ -50,10 +51,11 @@ def get_climatology(file, longitude, latitude, levels, level, vars):
 
     return climatology
 
+
 def process_month(path: str, month: int, level: str, longitude, latitude, levels, vars):
     """
     Processes the monthly data for a given month and level.
-    
+
     Parameters:
     - path (str): The path to the directory containing the netCDF files.
     - month (int): The month to process.
@@ -66,12 +68,14 @@ def process_month(path: str, month: int, level: str, longitude, latitude, levels
     latitudes = latitude[1] - latitude[0]
     longitudes = longitude[1] - longitude[0]
     pressure_levels = levels[1] - levels[0]
-    variables = len(vars) - 1 # Remove time
+    variables = len(vars) - 1  # Remove time
 
     if level == 'surface':
-        monthly_data = np.zeros((monthrange(2000, month)[1], latitudes, longitudes, variables))
+        monthly_data = np.zeros(
+            (monthrange(2000, month)[1], latitudes, longitudes, variables))
     elif level == 'upper':
-        monthly_data = np.zeros((monthrange(2000, month)[1], pressure_levels, latitudes, longitudes, variables))
+        monthly_data = np.zeros(
+            (monthrange(2000, month)[1], pressure_levels, latitudes, longitudes, variables))
     else:
         raise ValueError('level must be "upper" or "surface"')
 
@@ -80,15 +84,17 @@ def process_month(path: str, month: int, level: str, longitude, latitude, levels
 
     # TODO: parallelize this
     for file in files:
-        np_climatology = get_climatology(file, longitude, latitude, levels, level, vars)
+        np_climatology = get_climatology(
+            file, longitude, latitude, levels, level, vars)
         monthly_data += np_climatology
 
     return monthly_data / len(files)
 
+
 def process_climatology(config: dict):
     """
     Processes the climatology data for all months and levels.
-    
+
     Parameters:
     - config (dict): Configuration dictionary.
     """
@@ -115,8 +121,10 @@ def process_climatology(config: dict):
 
     # TODO: parallelize this
     for month in range(1, 13):
-        surface_climatologies[month] = process_month(raw_data_path, month, 'surface', longitude, latitude, levels, surface_var_names)
-        upper_climatologies[month] = process_month(raw_data_path, month, 'upper', longitude, latitude, levels, upper_var_names)
+        surface_climatologies[month] = process_month(
+            raw_data_path, month, 'surface', longitude, latitude, levels, surface_var_names)
+        upper_climatologies[month] = process_month(
+            raw_data_path, month, 'upper', longitude, latitude, levels, upper_var_names)
 
     # Save climatologies
     climatologies = {
