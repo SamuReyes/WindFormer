@@ -7,7 +7,7 @@ from torch.optim.lr_scheduler import _LRScheduler
 from transformers import get_linear_schedule_with_warmup
 from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader
-from model.dataset import CustomDataset
+from model.dataset import HDF5CustomDataset
 from model.model_instance import init_model, device
 from model.scheduler import WarmUpScheduler, LinearLR
 
@@ -73,28 +73,43 @@ def train_model(config: dict):
     batch_size = config['train']['batch_size']
     learning_rate = config['train']['learning_rate']
     epochs = config['train']['epochs']
+    data_path = os.path.join(
+        config['global']['path'], config['global']['processed_data_path'], 'data.hdf5')
+    train_split = config['train']['train_split']
+    val_split = config['train']['val_split']
+    prefetch_factor = config['train']['prefetch']
+    workers = config['train']['workers']
 
-    # Load data
-    train_data_path = os.path.join(
-        config['global']['path'], config['global']['train_data_path'])
-
-    upper_train = np.load(os.path.join(train_data_path, 'upper_train.npy'))
-    surface_train = np.load(os.path.join(train_data_path, 'surface_train.npy'))
-    labels_train = np.load(os.path.join(train_data_path, 'labels_train.npy'))
-
-    upper_val = np.load(os.path.join(train_data_path, 'upper_val.npy'))
-    surface_val = np.load(os.path.join(train_data_path, 'surface_val.npy'))
-    labels_val = np.load(os.path.join(train_data_path, 'labels_val.npy'))
+    # Convert the split years into strings
+    train_split = [str(year) for year in range(
+        train_split[0], train_split[-1] + 1)] if len(train_split) > 1 else [str(train_split[0])]
+    val_split = [str(year) for year in range(
+        val_split[0], val_split[-1] + 1)] if len(val_split) > 1 else [str(val_split[0])]
 
     # Create dataset and dataloader for training and validation
-    train_dataset = CustomDataset(
-        upper_train, surface_train, labels_train, sequence_length=sequence_length)
-    train_loader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=False)
+    train_dataset = HDF5CustomDataset(
+        hdf5_path=data_path, sequence_length=sequence_length, years=train_split)
 
-    val_dataset = CustomDataset(
-        upper_val, surface_val, labels_val, sequence_length=sequence_length)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    val_dataset = HDF5CustomDataset(
+        hdf5_path=data_path, sequence_length=sequence_length, years=val_split)
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=workers,
+        prefetch_factor=prefetch_factor,
+        pin_memory=True
+    )
+
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=workers,
+        prefetch_factor=prefetch_factor,
+        pin_memory=True  # ! Check
+    )
 
     # Initialize the model
     model = init_model(config)

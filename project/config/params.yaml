@@ -3,7 +3,6 @@ global:
   raw_data_path: data/raw
   processed_data_path: data/processed
   constants_path: data/constants
-  train_data_path: data/train
   checkpoints_path: checkpoints
   reports_path: reports
 preprocessing: 
@@ -13,7 +12,7 @@ preprocessing:
     latitude:  [10, 28]
     longitude: [18, 36]
     levels: [0, 9]
-    years: [2006, 2017]
+    years: [2001, 2017]
 barajas:
   latitude: 40.5
   longitude: -3.5
@@ -32,18 +31,20 @@ model:
   reconstr_dropout: 0.1
   scale_dim: 2 #2 / 4
 train:
-  batch_size: 12
+  batch_size: 8
   iters_to_accumulate: 2
   sequence_length: 6 # seq_len * num_patches = 256
   learning_rate: 0.0001
   warmup_ratio: 0 
-  epochs: 70
-  train: 0.7
-  validation: 0.15
-  test: 0.15
+  epochs: 2
+  train_split: [2001, 2015]
+  val_split: [2016]
+  test_split: [2017]
+  prefetch: 2
+  workers: 2
   log_mid_loss: True
   save_model: True
-  model_name: model_8
+  model_name: model_test
 plots:
   pred_vs_true: True
 
