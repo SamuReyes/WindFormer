@@ -197,7 +197,6 @@ def preprocess_data(config: dict):
             month = hour_to_datetime(time_step).month
             # Adjust for 0-based indexing
             day = hour_to_datetime(time_step).day - 1
-
             upper_data[i] -= upper_climatologies[month][day]
             surface_data[i] -= surface_climatologies[month][day]
 
