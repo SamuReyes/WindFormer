@@ -44,12 +44,14 @@ class HDF5CustomDataset(Dataset):
 
             upper_sequence = file[year_key]['upper']['data'][within_year_idx: within_year_idx + self.sequence_length]
             surface_sequence = file[year_key]['surface']['data'][within_year_idx: within_year_idx + self.sequence_length]
-            label = file[year_key]['labels'][within_year_idx + 1: within_year_idx + self.sequence_length + 1]
+            upper_label = file[year_key]['upper']['data'][within_year_idx + self.sequence_length]
+            surface_label = file[year_key]['surface']['data'][within_year_idx + self.sequence_length]
 
         # Convert to torch tensors
         data = {
             'upper': torch.from_numpy(upper_sequence).float(),
             'surface': torch.from_numpy(surface_sequence).float(),
-            'label': torch.from_numpy(label).float()
+            'upper_label': torch.from_numpy(upper_label).float(),
+            'surface_label': torch.from_numpy(surface_label).float()
         }
         return data

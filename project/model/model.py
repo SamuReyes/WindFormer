@@ -239,12 +239,16 @@ class ViViT(nn.Module):
     and aggregation.
     """
 
-    def __init__(self, image_size_3d, patch_size_3d, image_size_2d, patch_size_2d, seq_len, output_dim, dim=192, depth=4, heads=3, dim_head=64, dropout=0., emb_dropout=0., reconstr_dropout=0., scale_dim=4):
+    def __init__(self, image_size_3d, patch_size_3d, image_size_2d, patch_size_2d, seq_len, dim=192, depth=4, heads=3, dim_head=64, dropout=0., emb_dropout=0., reconstr_dropout=0., scale_dim=4):
         super().__init__()
 
+        self.image_size_3d = image_size_3d
+        self.image_size_2d = image_size_2d
+        self.surface_size = reduce(mul, self.image_size_2d)
+
         # Patch embedding layers for 3D and 2D data
-        self.to_patch_embedding_3d = PatchEmbedding3D(image_size_3d, patch_size_3d, dim)
-        self.to_patch_embedding_2d = PatchEmbedding2D(image_size_2d, patch_size_2d, dim)
+        self.to_patch_embedding_3d = PatchEmbedding3D(self.image_size_3d, patch_size_3d, dim)
+        self.to_patch_embedding_2d = PatchEmbedding2D(self.image_size_2d, patch_size_2d, dim)
 
         # Temporal embedding
         self.temporal_embedding = nn.Parameter(torch.randn(1, seq_len, 1, dim))
@@ -257,20 +261,20 @@ class ViViT(nn.Module):
         self.temporal_transformer = Transformer(dim, depth, heads, dim_head, dim*scale_dim, dropout)
 
         # Calculate the number of patches and the reconstruction head input dimension
-        n_patches_3d = (image_size_3d[0] // patch_size_3d[0]) * (
-            image_size_3d[1] // patch_size_3d[1]) * (image_size_3d[2] // patch_size_3d[2])
-        n_patches_2d = (image_size_2d[0] // patch_size_2d[0]) * (image_size_2d[1] // patch_size_2d[1])
+        n_patches_3d = (self.image_size_3d[0] // patch_size_3d[0]) * (
+            self.image_size_3d[1] // patch_size_3d[1]) * (self.image_size_3d[2] // patch_size_3d[2])
+        n_patches_2d = (self.image_size_2d[0] // patch_size_2d[0]) * (self.image_size_2d[1] // patch_size_2d[1])
         total_patches = n_patches_3d + n_patches_2d
         recon_head_input = total_patches * dim
 
         # Reconstruction head
         intermediate_dim = recon_head_input * 2
-        self.output_dim = output_dim
+        self.output_dim = reduce(mul, self.image_size_2d) + reduce(mul, self.image_size_3d)
         self.reconstruction_head = nn.Sequential(
             nn.Linear(recon_head_input, intermediate_dim),
             nn.ReLU(),
             nn.Dropout(reconstr_dropout),
-            nn.Linear(intermediate_dim, reduce(mul, output_dim))
+            nn.Linear(intermediate_dim, self.output_dim)
         )
 
     def create_temporal_attention_mask(self, t, n, device):
@@ -315,7 +319,8 @@ class ViViT(nn.Module):
         # Reconstruction to output dimensions
         x = rearrange(x, 'b (t n) d -> b t (n d)', t=t, n=n)  # [B, T, N * D]
         x = self.reconstruction_head(x)  # [B, T, output_dim]
-        x = x.view(-1, t, *self.output_dim)  # [B, T, output_dim]
-        # TODO implement patch recovery
-        # TODO try classifying instead of regression
-        return x
+
+        surface_output = x[:, :, :self.surface_size].reshape(b, t, *self.image_size_2d)  # [B, T, W, H, C]
+        upper_output = x[:, :, self.surface_size:].reshape(b, t, *self.image_size_3d)  # [B, T, Z, W, H, C]
+
+        return upper_output, surface_output
