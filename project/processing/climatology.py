@@ -71,11 +71,9 @@ def process_month(path: str, month: int, level: str, longitude, latitude, levels
     variables = len(vars) - 1  # Remove time
 
     if level == 'surface':
-        monthly_data = np.zeros(
-            (monthrange(2000, month)[1], latitudes, longitudes, variables))
+        monthly_data = np.zeros((monthrange(2000, month)[1], latitudes, longitudes, variables))
     elif level == 'upper':
-        monthly_data = np.zeros(
-            (monthrange(2000, month)[1], pressure_levels, latitudes, longitudes, variables))
+        monthly_data = np.zeros((monthrange(2000, month)[1], pressure_levels, latitudes, longitudes, variables))
     else:
         raise ValueError('level must be "upper" or "surface"')
 
@@ -84,8 +82,7 @@ def process_month(path: str, month: int, level: str, longitude, latitude, levels
 
     # TODO: parallelize this
     for file in files:
-        np_climatology = get_climatology(
-            file, longitude, latitude, levels, level, vars)
+        np_climatology = get_climatology(file, longitude, latitude, levels, level, vars)
         monthly_data += np_climatology
 
     return monthly_data / len(files)
@@ -108,10 +105,8 @@ def process_climatology(config: dict):
     upper_var_names = config['preprocessing']['upper_var_names']
     surface_var_names = config['preprocessing']['surface_var_names']
 
-    raw_data_path = os.path.join(
-        config['global']['path'], config['global']['raw_data_path'])
-    constants_path = os.path.join(
-        config['global']['path'], config['global']['constants_path'])
+    raw_data_path = os.path.join(config['global']['path'], config['global']['raw_data_path'])
+    constants_path = os.path.join(config['global']['path'], config['global']['constants_path'])
 
     os.makedirs(constants_path, exist_ok=True)
 
@@ -121,10 +116,9 @@ def process_climatology(config: dict):
 
     # TODO: parallelize this
     for month in range(1, 13):
-        surface_climatologies[month] = process_month(
-            raw_data_path, month, 'surface', longitude, latitude, levels, surface_var_names)
-        upper_climatologies[month] = process_month(
-            raw_data_path, month, 'upper', longitude, latitude, levels, upper_var_names)
+        surface_climatologies[month] = process_month(raw_data_path, month, 'surface',
+                                                     longitude, latitude, levels, surface_var_names)
+        upper_climatologies[month] = process_month(raw_data_path, month, 'upper', longitude, latitude, levels, upper_var_names)
 
     # Save climatologies
     climatologies = {

@@ -243,29 +243,23 @@ class ViViT(nn.Module):
         super().__init__()
 
         # Patch embedding layers for 3D and 2D data
-        self.to_patch_embedding_3d = PatchEmbedding3D(
-            image_size_3d, patch_size_3d, dim)
-        self.to_patch_embedding_2d = PatchEmbedding2D(
-            image_size_2d, patch_size_2d, dim)
+        self.to_patch_embedding_3d = PatchEmbedding3D(image_size_3d, patch_size_3d, dim)
+        self.to_patch_embedding_2d = PatchEmbedding2D(image_size_2d, patch_size_2d, dim)
 
         # Temporal embedding
-        self.temporal_embedding = nn.Parameter(
-            torch.randn(1, seq_len, 1, dim))
+        self.temporal_embedding = nn.Parameter(torch.randn(1, seq_len, 1, dim))
 
         # Dropout layer
         self.dropout = nn.Dropout(emb_dropout)
 
         # Spatial and temporal transformer layers
-        self.space_transformer = Transformer(
-            dim, depth, heads, dim_head, dim*scale_dim, dropout)
-        self.temporal_transformer = Transformer(
-            dim, depth, heads, dim_head, dim*scale_dim, dropout)
+        self.space_transformer = Transformer(dim, depth, heads, dim_head, dim*scale_dim, dropout)
+        self.temporal_transformer = Transformer(dim, depth, heads, dim_head, dim*scale_dim, dropout)
 
         # Calculate the number of patches and the reconstruction head input dimension
         n_patches_3d = (image_size_3d[0] // patch_size_3d[0]) * (
             image_size_3d[1] // patch_size_3d[1]) * (image_size_3d[2] // patch_size_3d[2])
-        n_patches_2d = (
-            image_size_2d[0] // patch_size_2d[0]) * (image_size_2d[1] // patch_size_2d[1])
+        n_patches_2d = (image_size_2d[0] // patch_size_2d[0]) * (image_size_2d[1] // patch_size_2d[1])
         total_patches = n_patches_3d + n_patches_2d
         recon_head_input = total_patches * dim
 
@@ -314,8 +308,7 @@ class ViViT(nn.Module):
         x = rearrange(x, '(b t) n d -> b t n d', b=b)  # [B, T, N, D]
 
         # Temporal transformer processing
-        attn_mask = self.create_temporal_attention_mask(
-            t, n, device=x.device)  # [T * N, T * N]
+        attn_mask = self.create_temporal_attention_mask(t, n, device=x.device)  # [T * N, T * N]
         x = rearrange(x, 'b t n d -> b (t n) d')  # [B, T * N, D]
         x = self.temporal_transformer(x, attn_mask)  # [B, T * N, D]
 
