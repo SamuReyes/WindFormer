@@ -49,9 +49,12 @@ def validate_model(model, val_loader, loss_fn):
     with torch.no_grad():
         for data in val_loader:
             with torch.autocast(device_type=device.type, dtype=torch.float16):
-                upper, surface, labels = data['upper'].to(device), data['surface'].to(device), data['label'].to(device)
-                outputs = model(upper, surface)
-                val_loss += loss_fn(outputs, labels).item()
+                upper, surface, upper_label, surface_label = data['upper'].to(device), data['surface'].to(
+                    device), data['upper_label'].to(device), data['surface_label'].to(device)
+                upper_output, surface_output = model(upper, surface)
+                upper_loss = loss_fn(upper_output, upper_label).item()
+                surface_loss = loss_fn(surface_output, surface_label).item()
+                val_loss += (upper_loss + surface_loss)
     return val_loss / len(val_loader)
 
 
@@ -138,10 +141,14 @@ def train_model(config: dict):
         for i, data in enumerate(train_loader):
             # Runs the forward pass under autocast
             with torch.autocast(device_type=device.type, dtype=torch.float16):
-                upper, surface, labels = data['upper'].to(device), data['surface'].to(device), data['label'].to(device)
-                outputs = model(upper, surface)
-                loss = loss_fn(outputs, labels)
-                loss = loss / iters_to_accumulate
+                upper, surface, upper_label, surface_label = data['upper'].to(device), data['surface'].to(
+                    device), data['upper_label'].to(device), data['surface_label'].to(device)
+                upper_output, surface_output = model(upper, surface)
+                upper = torch.cat((upper[:, 1:, ...], upper_label.unsqueeze(1)), dim=1)
+                surface = torch.cat((surface[:, 1:, ...], surface_label.unsqueeze(1)), dim=1)
+                upper_loss = loss_fn(upper_output, upper)
+                surface_loss = loss_fn(surface_output, surface)
+                loss = (upper_loss + surface_loss) / iters_to_accumulate
 
             scaler.scale(loss).backward()
 
