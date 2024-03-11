@@ -28,19 +28,16 @@ def infer(config):
     # Load configuration parameters
     sequence_length = config['train']['sequence_length']
     batch_size = config['train']['batch_size']
-    data_path = os.path.join(
-        config['global']['path'], config['global']['processed_data_path'], 'data.hdf5')
+    data_path = os.path.join(config['global']['path'], config['global']['processed_data_path'], 'data.hdf5')
     test_split = config['train']['test_split']
     prefetch_factor = config['train']['prefetch']
     workers = config['train']['workers']
 
     # Convert the split years into strings
-    test_split = [str(year) for year in range(
-        test_split[0], test_split[-1] + 1)] if len(test_split) > 1 else [str(test_split[0])]
+    test_split = [str(year) for year in range(test_split[0], test_split[-1] + 1)] if len(test_split) > 1 else [str(test_split[0])]
 
     # Create dataset and dataloader
-    test_dataset = HDF5CustomDataset(
-        hdf5_path=data_path, sequence_length=sequence_length, years=test_split)
+    test_dataset = HDF5CustomDataset(hdf5_path=data_path, sequence_length=sequence_length, years=test_split)
 
     test_loader = DataLoader(
         test_dataset,
@@ -55,8 +52,7 @@ def infer(config):
     # Perform inference
     with torch.no_grad():
         for data in test_loader:
-            upper, surface, labels = data['upper'].to(
-                device), data['surface'].to(device), data['label'].to(device)
+            upper, surface, labels = data['upper'].to(device), data['surface'].to(device), data['label'].to(device)
             outputs = model(upper, surface)
 
             # For each sample in the batch save the prediction and ground truth

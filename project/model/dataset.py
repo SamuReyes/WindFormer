@@ -35,20 +35,16 @@ class HDF5CustomDataset(Dataset):
 
     def __getitem__(self, idx):
         # Find which year this idx falls into, adjusted for sequence length
-        year_idx = next(i for i, total in enumerate(
-            self.cumulative_lengths) if idx < total) - 1
+        year_idx = next(i for i, total in enumerate(self.cumulative_lengths) if idx < total) - 1
         within_year_idx = idx - self.cumulative_lengths[year_idx]
 
         # Open the HDF5 file and extract the sequences and label
         with h5py.File(self.hdf5_path, 'r') as file:
             year_key = self.years[year_idx]
 
-            upper_sequence = file[year_key]['upper']['data'][within_year_idx:
-                                                             within_year_idx + self.sequence_length]
-            surface_sequence = file[year_key]['surface']['data'][within_year_idx:
-                                                                 within_year_idx + self.sequence_length]
-            label = file[year_key]['labels'][within_year_idx +
-                                             1: within_year_idx + self.sequence_length + 1]
+            upper_sequence = file[year_key]['upper']['data'][within_year_idx: within_year_idx + self.sequence_length]
+            surface_sequence = file[year_key]['surface']['data'][within_year_idx: within_year_idx + self.sequence_length]
+            label = file[year_key]['labels'][within_year_idx + 1: within_year_idx + self.sequence_length + 1]
 
         # Convert to torch tensors
         data = {

@@ -52,8 +52,8 @@ def get_labels(config: dict):
         # Iterate over years
         for key in f.keys():
             # Compute labels
-            labels = extract_labels(f[key]["surface"]["data"], f[key]["upper"]
-                                    ["data"], surface_indices, middle_indices, upper_indices)
+            labels = extract_labels(f[key]["surface"]["data"], f[key]["upper"]["data"],
+                                    surface_indices, middle_indices, upper_indices)
 
             # Save labels into data file
             if "labels" not in f[key]:
