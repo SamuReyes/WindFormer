@@ -1,13 +1,13 @@
 import yaml
 
 
-def load_config():
+def load_config(config_path):
     """
     Loads configuration settings from a YAML file.
 
     :return: A dictionary containing the configuration parameters.
     """
-    with open("./config/params.yaml", "r") as f:
+    with open(config_path, "r") as f:
         return yaml.load(f, Loader=yaml.FullLoader)
 
 
