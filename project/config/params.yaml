@@ -1,5 +1,5 @@
 global:
-  path: /home/windgust/workspace/project
+  path: /home/samuelr/projects/WindViViT/project
   raw_data_path: data/raw
   processed_data_path: data/processed
   constants_path: data/constants
@@ -9,18 +9,18 @@ preprocessing:
   upper_var_names: ['time', 'u', 'v', 'q', 't', 'd', 'z', 'w', 'vo']
   surface_var_names: ['time', 'u100', 'v100', 'u10', 'v10', 'd2m', 't2m', 'z', 'msl', 'i10fg']
   limits:
-    latitude:  [12, 27]
-    longitude: [20, 35]
+    latitude:  [10, 28]
+    longitude: [18, 36]
     levels: [0, 9]
     years: [2001, 2017]
 barajas:
   latitude: 40.5
   longitude: -3.5
 model:
-  image_size_3d: [9, 15, 15, 8]
-  patch_size_3d: [3, 5, 5]
-  image_size_2d: [15, 15, 9]
-  patch_size_2d: [5, 5]
+  image_size_3d: [9, 18, 18, 8]
+  patch_size_3d: [3, 6, 6]
+  image_size_2d: [18, 18, 9]
+  patch_size_2d: [6, 6]
   dim: 512 #512 / 768
   depth: 6 #6 / 12
   heads: 6 #6 / 12
@@ -30,12 +30,12 @@ model:
   reconstr_dropout: 0.1
   scale_dim: 2 #2 / 4
 train:
-  batch_size: 1
+  batch_size: 4
   iters_to_accumulate: 2
-  sequence_length: 4 # seq_len * num_patches = 256 (6)
+  sequence_length: 6 # seq_len * num_patches = 256 (6)
   learning_rate: 0.0001
   warmup_ratio: 0 
-  epochs: 10
+  epochs: 50
   train_split: [2001, 2015]
   val_split: [2016]
   test_split: [2017]

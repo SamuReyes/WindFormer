@@ -144,10 +144,8 @@ def train_model(config: dict):
                 upper, surface, upper_label, surface_label = data['upper'].to(device), data['surface'].to(
                     device), data['upper_label'].to(device), data['surface_label'].to(device)
                 upper_output, surface_output = model(upper, surface)
-                upper = torch.cat((upper[:, 1:, ...], upper_label.unsqueeze(1)), dim=1)
-                surface = torch.cat((surface[:, 1:, ...], surface_label.unsqueeze(1)), dim=1)
-                upper_loss = loss_fn(upper_output, upper)
-                surface_loss = loss_fn(surface_output, surface)
+                upper_loss = loss_fn(upper_output, upper_label)
+                surface_loss = loss_fn(surface_output, surface_label)
                 loss = (upper_loss + surface_loss) / iters_to_accumulate
 
             scaler.scale(loss).backward()

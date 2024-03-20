@@ -1,23 +1,33 @@
 import numpy as np
 
-
 def calculate_rmse(results):
     """
-    Calculates the RMSE from a list of dictionaries containing
-    predictions and ground truthvalues.
+    Calculates the RMSE for 'upper' and 'surface' predictions from a list of dictionaries containing
+    predictions and ground truth values, along with a type identifier.
 
     Parameters:
-    - results (list): List of dictionaries with 'prediction' and 'ground_truth' keys.
+    - results (list): List of dictionaries with 'type', 'prediction', and 'ground_truth' keys.
 
     Returns:
-    - rmse (float): Root Mean Square Error.
+    - rmse_dict (dict): Dictionary with RMSE values for 'upper' and 'surface'.
     """
-    # Extract predictions and actual values
-    predictions = np.array([result['prediction'] for result in results])
-    ground_truths = np.array([result['ground_truth'] for result in results])
-
-    # Calculate MSE and then RMSE
-    mse = np.mean((predictions - ground_truths) ** 2)
-    rmse = np.sqrt(mse)
+    upper_predictions = np.array([result['prediction'] for result in results if result['type'] == 'upper'])
+    upper_ground_truths = np.array([result['ground_truth'] for result in results if result['type'] == 'upper'])
+    
+    surface_predictions = np.array([result['prediction'] for result in results if result['type'] == 'surface'])
+    surface_ground_truths = np.array([result['ground_truth'] for result in results if result['type'] == 'surface'])
+    
+    # Upper RMSE
+    upper_mse = np.mean((upper_predictions - upper_ground_truths) ** 2)
+    upper_rmse = np.sqrt(upper_mse)
+    
+    #Surface RMSE
+    surface_mse = np.mean((surface_predictions - surface_ground_truths) ** 2)
+    surface_rmse = np.sqrt(surface_mse)
+    
+    rmse = {
+        'upper_rmse': upper_rmse,
+        'surface_rmse': surface_rmse
+    }
 
     return rmse

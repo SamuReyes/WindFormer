@@ -52,14 +52,19 @@ def infer(config):
     # Perform inference
     with torch.no_grad():
         for data in test_loader:
-            upper, surface, labels = data['upper'].to(device), data['surface'].to(device), data['label'].to(device)
-            outputs = model(upper, surface)
-
+            upper, surface, upper_label, surface_label = data['upper'].to(device), data['surface'].to(device), data['upper_label'].to(device), data['surface_label'].to(device)
+            upper_output, surface_output = model(upper, surface)
             # For each sample in the batch save the prediction and ground truth
-            for pred, gt in zip(outputs.cpu().numpy(), labels.cpu().numpy()):
+            for u_pred, u_gt, s_pred, s_gt in zip(upper_output.cpu().numpy(), upper_label.cpu().numpy(), surface_output.cpu().numpy(), surface_label.cpu().numpy()):
                 results.append({
-                    'prediction': pred,
-                    'ground_truth': gt,
+                    'type': 'upper',
+                    'prediction': u_pred,
+                    'ground_truth': u_gt,
+                })
+                results.append({
+                    'type': 'surface',
+                    'prediction': s_pred,
+                    'ground_truth': s_gt,
                 })
 
     return results
