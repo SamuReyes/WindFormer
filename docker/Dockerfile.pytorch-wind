@@ -11,11 +11,17 @@
 ARG BASE=nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04
 FROM $BASE
 
-# change BASE accordingly
+# local
 ARG USER=windgust
 ARG PASSWORD=windisawesome
 ARG UID=1000
 ARG GID=1000
+
+# server
+# ARG USER=samuelr
+# ARG PASSWORD=windisawesome
+# ARG UID=1012
+# ARG GID=1012
 
 # Setup timezone
 ENV TZ=Europe/Madrid
