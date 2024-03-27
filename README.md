@@ -107,7 +107,7 @@ Navigate to the /docker directory and **modify the volume path** in the docker-c
 In the /docker directory, run the following command to build the Docker image. Replace <user> and <password> with your desired credentials:
 
 ```bash
-sudo docker build -t docker-pytorch2.0.1:wind-prediction -f Dockerfile.pytorch-wind --build-arg USER=<user> --build-arg PASSWORD=<password> .
+sudo docker build -t wind-prediction -f Dockerfile.pytorch-wind --build-arg USER=<user> --build-arg PASSWORD=<password> .
 ```
 
 **Start the Docker Container:**
