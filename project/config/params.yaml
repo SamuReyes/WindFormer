@@ -21,16 +21,16 @@ model:
   patch_size_3d: [3, 6, 6]
   image_size_2d: [18, 18, 9]
   patch_size_2d: [6, 6]
-  dim: 512 #512 / 768
-  depth: 6 #6 / 12
-  heads: 6 #6 / 12
-  dim_head: 32 # 32 / 64
+  dim: 768 #512 / 768
+  depth: 12 #6 / 12
+  heads: 12 #6 / 12
+  dim_head: 64 # 32 / 64
   dropout: 0.1
   emb_dropout: 0.1
   reconstr_dropout: 0.1
-  scale_dim: 2 #2 / 4
+  scale_dim: 4 #2 / 4
 train:
-  batch_size: 4
+  batch_size: 16
   iters_to_accumulate: 2
   sequence_length: 6 # seq_len * num_patches = 256 (6)
   learning_rate: 0.0001
@@ -43,7 +43,7 @@ train:
   workers: 2
   log_mid_loss: True
   save_model: True
-  model_name: model_test
+  model_name: model_patch_recovery
 plots:
   pred_vs_true: True
 
