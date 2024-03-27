@@ -229,6 +229,75 @@ class Transformer(nn.Module):
         return self.norm(x)        # Apply final layer normalization
 
 
+class PatchRecovery(nn.Module):
+    def __init__(self, patch_size_2d, patch_size_3d, dim):
+        super().__init__()
+        #! 8 y 9 son el número de variables meterológicas
+        self.tconv_upper = nn.ConvTranspose3d(dim, 8, patch_size_3d, patch_size_3d) 
+        self.tconv_surface = nn.ConvTranspose2d(dim, 9, patch_size_2d, patch_size_2d)
+
+    def forward(self, x):
+        # input shape: (B, 8, 360, 181, 2C)
+
+        # torch conv layers take inputs of shape (B, C (, Z), H, W), therefore permute:
+        #   (B, 8, 360, 181, 2C) -> (B, 2C, 8, 360, 181)
+        x = torch.permute(x, (0,4,1,2,3))
+
+        # Recover the air variables from [1:] slice of Z dimension:
+        #   (B, 2C, 7, 360, 181) -> (B, 5, 14, 1440, 724)
+        output_air = self.tconv_upper(x[:, :, 1:, :, :])
+
+        # Recover the surface variables from [0] slice of the Z dimension:
+        #   (B, 2C, 360, 181) -> (B, 4, 1440, 724)
+        output_surface = self.tconv_surface(x[:, :, 0, :, :])
+
+        # Crop the padding added in patch embedding:
+        #   (B, 5, 14, 1440, 724) -> (B, 5, 13, 1440, 721)
+        output_air = output_air[:, :, 1:, :, 2:-1]
+        #   (B, 4, 1440, 724) -> (B, 4, 1440, 721)
+        output_surface = output_surface[:, :, :, 2:-1]
+
+        # Restore the original shape:
+        #   (B, 5, 13, 1440, 721) -> (B, 13, 1440, 721, 5)
+        output_air = output_air.permute(0, 2, 3, 4, 1)
+        #   (B, 4, 1440, 721) -> (B, 1440, 721, 4)
+        output_surface = output_surface.permute(0, 2, 3, 1)
+        return output_air, output_surface
+
+
+class PatchRecovery(nn.Module):
+    def __init__(self, image_size_3d, image_size_2d, patch_size_3d, patch_size_2d, dim):
+        super().__init__()
+        self.dim = dim
+        self.patch_shape_3d = [i//j for i, j in zip(image_size_3d[:3], patch_size_3d)]
+        self.patch_shape_2d = [i//j for i, j in zip(image_size_2d[:2], patch_size_2d)]
+        self.tconv_upper = nn.ConvTranspose3d(dim, image_size_3d[3], kernel_size=patch_size_3d, stride=patch_size_3d)
+        self.tconv_surface = nn.ConvTranspose2d(dim, image_size_2d[2], kernel_size=patch_size_2d, stride=patch_size_2d)
+
+    def forward(self, x, b, t, n_upper, n_surface):
+        
+        # Separa los datos de upper y surface
+        x_upper = x[:, :, :n_upper, :]  # [B, T, n_upper, D]
+        x_surface = x[:, :, n_upper:, :]  # [B, T, n_surface, D]
+
+        x_upper = rearrange(x_upper, 'b t n d -> (b t) n d') # [B*T, n_upper, D]
+        x_surface = rearrange(x_surface, 'b t n d -> (b t) n d') # [B*T, n_surface, D]
+
+        x_upper = x_upper.permute(0, 2, 1)  # [B*T, D, n_upper]
+        x_surface = x_surface.permute(0, 2, 1) # [B*T, D, n_surface]
+
+        x_upper = x_upper.view(b*t, self.dim, *self.patch_shape_3d) # [B*T, D, Z//patchZ, W//patchW, H//patchH]
+        x_surface = x_surface.view(b*t, self.dim, *self.patch_shape_2d) # [B*T, D, W//patchW, H//patchH]
+        
+        output_upper = self.tconv_upper(x_upper) # [B*T, C, Z, W, H]
+        output_surface = self.tconv_surface(x_surface) # [B*T, C, W, H]
+
+        output_upper = rearrange(output_upper, '(b t) c z w h -> b t z w h c', b=b, t=t)  # [B, T, Z, W, H, C]
+        output_surface = rearrange(output_surface, '(b t) c w h -> b t w h c', b=b, t=t)  # [B, T, W, H, C]
+
+        return output_upper, output_surface
+
+
 class ViViT(nn.Module):
     """
     ViViT model, a transformer-based model designed for processing both 
@@ -245,6 +314,7 @@ class ViViT(nn.Module):
         self.image_size_3d = image_size_3d
         self.image_size_2d = image_size_2d
         self.surface_size = reduce(mul, self.image_size_2d)
+        self.upper_size = reduce(mul, self.image_size_3d)
 
         # Patch embedding layers for 3D and 2D data
         self.to_patch_embedding_3d = PatchEmbedding3D(self.image_size_3d, patch_size_3d, dim)
@@ -260,22 +330,8 @@ class ViViT(nn.Module):
         self.space_transformer = Transformer(dim, depth, heads, dim_head, dim*scale_dim, dropout)
         self.temporal_transformer = Transformer(dim, depth, heads, dim_head, dim*scale_dim, dropout)
 
-        # Calculate the number of patches and the reconstruction head input dimension
-        n_patches_3d = (self.image_size_3d[0] // patch_size_3d[0]) * (
-            self.image_size_3d[1] // patch_size_3d[1]) * (self.image_size_3d[2] // patch_size_3d[2])
-        n_patches_2d = (self.image_size_2d[0] // patch_size_2d[0]) * (self.image_size_2d[1] // patch_size_2d[1])
-        total_patches = n_patches_3d + n_patches_2d
-        recon_head_input = total_patches * dim
-
         # Reconstruction head
-        intermediate_dim = recon_head_input * 2
-        self.output_dim = reduce(mul, self.image_size_2d) + reduce(mul, self.image_size_3d)
-        self.reconstruction_head = nn.Sequential(
-            nn.Linear(recon_head_input, intermediate_dim),
-            nn.ReLU(),
-            nn.Dropout(reconstr_dropout),
-            nn.Linear(intermediate_dim, self.output_dim)
-        )
+        self.patch_recovery = PatchRecovery(image_size_3d, image_size_2d, patch_size_3d, patch_size_2d, dim)
 
     def create_temporal_attention_mask(self, t, n, device):
         """
@@ -316,11 +372,8 @@ class ViViT(nn.Module):
         x = rearrange(x, 'b t n d -> b (t n) d')  # [B, T * N, D]
         x = self.temporal_transformer(x, attn_mask)  # [B, T * N, D]
 
-        # Reconstruction to output dimensions
-        x = rearrange(x, 'b (t n) d -> b t (n d)', t=t, n=n)  # [B, T, N * D]
-        x = self.reconstruction_head(x)  # [B, T, output_dim]
+        x = rearrange(x, 'b (t n) d -> b t n d', t=t) # [B, T, N, D]
 
-        surface_output = x[:, :, :self.surface_size].reshape(b, t, *self.image_size_2d)  # [B, T, W, H, C]
-        upper_output = x[:, :, self.surface_size:].reshape(b, t, *self.image_size_3d)  # [B, T, Z, W, H, C]
+        upper_output, surface_output = self.patch_recovery(x, b, t, x_3d.shape[2], x_2d.shape[2])
 
         return upper_output, surface_output
