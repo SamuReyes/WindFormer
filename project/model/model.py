@@ -9,16 +9,91 @@ from einops import rearrange
 from functools import reduce
 from operator import mul
 
-
-class PatchEmbedding3D(nn.Module):
+class ViViT(nn.Module):
     """
-    Implements a 3D patch embedding module for volumetric data.
+    ViViT model, a transformer-based model designed for processing both 
+    3D and 2D data in a unified framework.
 
-    This module takes an input tensor with dimensions (B, T, Z, W, H, C) and 
+    The model consists of separate patch embeddings for 3D and 2D data, 
+    followed by spatial and temporal transformers for feature extraction 
+    and aggregation.
+    """
+
+    def __init__(self, image_size_3d, patch_size_3d, image_size_2d, patch_size_2d, seq_len, dim=192, depth=4, heads=3, dim_head=64, dropout=0., emb_dropout=0., reconstr_dropout=0., scale_dim=4):
+        super().__init__()
+
+        self.image_size_3d = image_size_3d
+        self.image_size_2d = image_size_2d
+        self.surface_size = reduce(mul, self.image_size_2d)
+        self.upper_size = reduce(mul, self.image_size_3d)
+
+        # Patch embedding layers for 3D and 2D data
+        self.to_patch_embedding_3d = PatchEmbedding(self.image_size_3d, patch_size_3d, dim)
+
+        # Temporal embedding
+        self.temporal_embedding = nn.Parameter(torch.randn(1, seq_len, 1, dim))
+
+        # Dropout layer
+        self.dropout = nn.Dropout(emb_dropout)
+
+        # Spatial and temporal transformer layers
+        self.space_transformer = Transformer(dim, depth, heads, dim_head, dim*scale_dim, dropout)
+        self.temporal_transformer = Transformer(dim, depth, heads, dim_head, dim*scale_dim, dropout)
+
+        # Reconstruction head
+        self.patch_recovery = PatchRecovery(image_size_3d, image_size_2d, patch_size_3d, patch_size_2d, dim)
+
+    def create_temporal_attention_mask(self, t, n, device):
+        """
+        Creates a mask for the temporal transformer to enable selective attention.
+
+        The mask is a lower triangular matrix, which allows each time step to 
+        only attend to previous and current time steps, not future ones.
+        """
+        mask = torch.ones((t * n, t * n), device=device)
+        for i in range(t):
+            mask[i * n:(i + 1) * n, (i + 1) * n:] = 0  # Mask future time steps
+
+        return mask.bool()
+
+    def forward(self, x_3d, x_2d):
+        # Embedding 3D and 2D data
+        x = self.to_patch_embedding_3d(x_3d, x_2d)  # [B, T, N, D]
+
+        b, t, n, _ = x.shape
+
+        # Add temporal embedding
+        temp_emb = self.temporal_embedding[:, :t, :, :]
+        x += temp_emb
+
+        x = self.dropout(x)
+
+        # Spatial transformer processing
+        x = rearrange(x, 'b t n d -> (b t) n d')  # [B * T, N, D]
+        x = self.space_transformer(x)  # [B, T, N, D]
+        x = rearrange(x, '(b t) n d -> b t n d', b=b)  # [B, T, N, D]
+
+        # Temporal transformer processing
+        attn_mask = self.create_temporal_attention_mask(t, n, device=x.device)  # [T * N, T * N]
+        x = rearrange(x, 'b t n d -> b (t n) d')  # [B, T * N, D]
+        x = self.temporal_transformer(x, attn_mask)  # [B, T * N, D]
+
+        x = rearrange(x, 'b (t n) d -> b t n d', t=t) # [B, T, N, D]
+
+        # Patch recovery
+        upper_output, surface_output = self.patch_recovery(x, b, t, self.to_patch_embedding_3d.num_patches_3d)
+
+        return upper_output, surface_output
+
+class PatchEmbedding(nn.Module):
+    """
+    Implements a patch embedding module for surface and upper data.
+
+    This module takes an input tensor with dimensions (B, T, (,Z), W, H, C) and 
     transforms it into a tensor of shape (B, T, N, D), where:
     - B is the batch size,
     - T is the number of time steps,
-    - Z, W, H are the dimensions of the 3D data (depth, width, height),
+    - Z, W, H are the dimensions of the data (depth, width, height),
     - C is the number of channels,
     - N is the number of patches, and
     - D is the dimension of the embedding.
@@ -26,87 +101,73 @@ class PatchEmbedding3D(nn.Module):
 
     def __init__(self, image_size, patch_size, dim):
         super().__init__()
+
         Z, W, H, C = image_size
         patch_z, patch_w, patch_h = patch_size
 
-        # Ensure that the image dimensions are divisible by the patch size
-        assert Z % patch_z == 0 and W % patch_w == 0 and H % patch_h == 0, \
-            'Image dimensions must be divisible by the patch size'
+        # Calculate the number of patches
+        self.num_patches_3d = (Z // patch_z) * (W // patch_w) * (H // patch_h)
+        self.num_patches_2d = (W // patch_w) * (H // patch_h)
+        self.num_patches = self.num_patches_3d + self.num_patches_2d
 
-        # Calculate the number of patches and the dimension of each patch
-        num_patches = (Z // patch_z) * (W // patch_w) * (H // patch_h)
-        patch_dim = C * patch_z * patch_w * patch_h
-
-        # Define the transformation to convert input data to patch embeddings
-        self.to_patch_embedding = nn.Sequential(
-            Rearrange('b t (z pz) (w pw) (h ph) c -> b t (z w h) (pz pw ph c)',
-                      pz=patch_z, pw=patch_w, ph=patch_h),
-            nn.Linear(patch_dim, dim),
-        )
+        self.conv_upper = nn.Conv3d(in_channels=C, out_channels=dim, kernel_size=patch_size, stride=patch_size)
+        self.conv_surface = nn.Conv2d(in_channels=9, out_channels=dim, kernel_size=patch_size[1:], stride=patch_size[1:])
 
         # Positional embedding
         self.pos_embedding = nn.Parameter(torch.randn(
-            1, num_patches, dim))  # TODO implement RoPE embedding
+            1, self.num_patches, dim))  # TODO implement RoPE embedding
 
-    def forward(self, img):
-        # Apply the patch embedding transformation
-        x = self.to_patch_embedding(img)
-        b, t, n, _ = x.shape
+    def forward(self, x_3d, x_2d):
+
+        b, t, z, w, h, c = x_3d.shape
+
+        x_3d = rearrange(x_3d, 'b t z w h c -> (b t) c z w h')  # [B*T, C, Z, W, H]
+        x_2d = rearrange(x_2d, 'b t w h c -> (b t) c w h')  # [B*T, C, W, H]
+
+        x_3d = self.conv_upper(x_3d)  # [B*T, D, Z//patchZ, W//patchW, H//patchH]
+        x_2d = self.conv_surface(x_2d) # [B*T, D, W//patchW, H//patchH]
+
+        x_3d = rearrange(x_3d, '(b t) d z w h -> b t (z w h) d', b=b, t=t)  # [B, T, N, D]
+        x_2d = rearrange(x_2d, '(b t) d w h -> b t (w h) d', b=b, t=t)  # [B, T, N, D]
+
+        x = torch.cat((x_3d, x_2d), dim=2)  # [B, T, N, D]
 
         # Add the positional embedding to the patch embeddings
-        x += self.pos_embedding[:, :n]
+        x += self.pos_embedding
 
         return x
-
-
-class PatchEmbedding2D(nn.Module):
-    """
-    Implements a 2D patch embedding module for surface data.
-
-    This module takes an input tensor with dimensions (B, T, W, H, C) and 
-    transforms it into a tensor of shape (B, T, N, D), where:
-    - B is the batch size,
-    - T is the number of time steps,
-    - W, H are the width and height of the image,
-    - C is the number of channels,
-    - N is the number of patches, and
-    - D is the dimension of the embedding.
-    """
-
-    def __init__(self, image_size, patch_size, dim):
+    
+class PatchRecovery(nn.Module):
+    def __init__(self, image_size_3d, image_size_2d, patch_size_3d, patch_size_2d, dim):
         super().__init__()
-        W, H, C = image_size
-        patch_w, patch_h = patch_size
+        self.dim = dim
+        self.patch_shape_3d = [i//j for i, j in zip(image_size_3d[:3], patch_size_3d)]
+        self.patch_shape_2d = [i//j for i, j in zip(image_size_2d[:2], patch_size_2d)]
+        self.tconv_upper = nn.ConvTranspose3d(dim, image_size_3d[3], kernel_size=patch_size_3d, stride=patch_size_3d)
+        self.tconv_surface = nn.ConvTranspose2d(dim, image_size_2d[2], kernel_size=patch_size_2d, stride=patch_size_2d)
 
-        # Ensure that the image dimensions are divisible by the patch size
-        assert W % patch_w == 0 and H % patch_h == 0, \
-            'Image dimensions must be divisible by the patch size'
+    def forward(self, x, b, t, n_upper):
+        
+        # Separa los datos de upper y surface
+        x_upper = x[:, :, :n_upper, :]  # [B, T, n_upper, D]
+        x_surface = x[:, :, n_upper:, :]  # [B, T, n_surface, D]
 
-        # Calculate the number of patches and the dimension of each patch
-        num_patches = (W // patch_w) * (H // patch_h)
-        patch_dim = C * patch_w * patch_h
+        x_upper = rearrange(x_upper, 'b t n d -> (b t) n d') # [B*T, n_upper, D]
+        x_surface = rearrange(x_surface, 'b t n d -> (b t) n d') # [B*T, n_surface, D]
 
-        # Define the transformation to convert input data to patch embeddings
-        self.to_patch_embedding = nn.Sequential(
-            Rearrange('b t (w pw) (h ph) c -> b t (w h) (pw ph c)',
-                      pw=patch_w, ph=patch_h),
-            nn.Linear(patch_dim, dim),
-        )
+        x_upper = x_upper.permute(0, 2, 1)  # [B*T, D, n_upper]
+        x_surface = x_surface.permute(0, 2, 1) # [B*T, D, n_surface]
 
-        # Positional embedding
-        self.pos_embedding = nn.Parameter(torch.randn(
-            1, num_patches, dim))  # TODO implement RoPE embedding
+        x_upper = x_upper.view(b*t, self.dim, *self.patch_shape_3d) # [B*T, D, Z//patchZ, W//patchW, H//patchH]
+        x_surface = x_surface.view(b*t, self.dim, *self.patch_shape_2d) # [B*T, D, W//patchW, H//patchH]
+        
+        output_upper = self.tconv_upper(x_upper) # [B*T, C, Z, W, H]
+        output_surface = self.tconv_surface(x_surface) # [B*T, C, W, H]
 
-    def forward(self, img):
-        # Apply the patch embedding transformation
-        x = self.to_patch_embedding(img)
-        b, t, n, _ = x.shape
+        output_upper = rearrange(output_upper, '(b t) c z w h -> b t z w h c', b=b, t=t)  # [B, T, Z, W, H, C]
+        output_surface = rearrange(output_surface, '(b t) c w h -> b t w h c', b=b, t=t)  # [B, T, W, H, C]
 
-        # Add the positional embedding to the patch embeddings
-        x += self.pos_embedding[:, :n]
-
-        return x
-
+        return output_upper, output_surface
 
 class PreNorm(nn.Module):
     """
@@ -227,95 +288,4 @@ class Transformer(nn.Module):
             x = attn(x, attn_mask=attn_mask) + x
             x = ff(x) + x          # Apply feed-forward and add residual
         return self.norm(x)        # Apply final layer normalization
-
-
-class ViViT(nn.Module):
-    """
-    ViViT model, a transformer-based model designed for processing both 
-    3D and 2D data in a unified framework.
-
-    The model consists of separate patch embeddings for 3D and 2D data, 
-    followed by spatial and temporal transformers for feature extraction 
-    and aggregation.
-    """
-
-    def __init__(self, image_size_3d, patch_size_3d, image_size_2d, patch_size_2d, seq_len, output_dim, dim=192, depth=4, heads=3, dim_head=64, dropout=0., emb_dropout=0., reconstr_dropout=0., scale_dim=4):
-        super().__init__()
-
-        # Patch embedding layers for 3D and 2D data
-        self.to_patch_embedding_3d = PatchEmbedding3D(image_size_3d, patch_size_3d, dim)
-        self.to_patch_embedding_2d = PatchEmbedding2D(image_size_2d, patch_size_2d, dim)
-
-        # Temporal embedding
-        self.temporal_embedding = nn.Parameter(torch.randn(1, seq_len, 1, dim))
-
-        # Dropout layer
-        self.dropout = nn.Dropout(emb_dropout)
-
-        # Spatial and temporal transformer layers
-        self.space_transformer = Transformer(dim, depth, heads, dim_head, dim*scale_dim, dropout)
-        self.temporal_transformer = Transformer(dim, depth, heads, dim_head, dim*scale_dim, dropout)
-
-        # Calculate the number of patches and the reconstruction head input dimension
-        n_patches_3d = (image_size_3d[0] // patch_size_3d[0]) * (
-            image_size_3d[1] // patch_size_3d[1]) * (image_size_3d[2] // patch_size_3d[2])
-        n_patches_2d = (image_size_2d[0] // patch_size_2d[0]) * (image_size_2d[1] // patch_size_2d[1])
-        total_patches = n_patches_3d + n_patches_2d
-        recon_head_input = total_patches * dim
-
-        # Reconstruction head
-        intermediate_dim = recon_head_input * 2
-        self.output_dim = output_dim
-        self.reconstruction_head = nn.Sequential(
-            nn.Linear(recon_head_input, intermediate_dim),
-            nn.ReLU(),
-            nn.Dropout(reconstr_dropout),
-            nn.Linear(intermediate_dim, reduce(mul, output_dim))
-        )
-
-    def create_temporal_attention_mask(self, t, n, device):
-        """
-        Creates a mask for the temporal transformer to enable selective attention.
-
-        The mask is a lower triangular matrix, which allows each time step to 
-        only attend to previous and current time steps, not future ones.
-        """
-        mask = torch.ones((t * n, t * n), device=device)
-        for i in range(t):
-            mask[i * n:(i + 1) * n, (i + 1) * n:] = 0  # Mask future time steps
-
-        return mask.bool()
-
-    def forward(self, x_3d, x_2d):
-        # Embedding 3D and 2D data
-        x_3d = self.to_patch_embedding_3d(x_3d)  # [B, T, n, D]
-        x_2d = self.to_patch_embedding_2d(x_2d)  # [B, T, n, D]
-
-        # Concatenate embedded 3D and 2D data
-        x = torch.cat((x_3d, x_2d), dim=2)  # [B, T, N, D]
-
-        b, t, n, _ = x.shape
-
-        # Add temporal embedding
-        temp_emb = self.temporal_embedding[:, :t, :, :]
-        x += temp_emb
-
-        x = self.dropout(x)
-
-        # Spatial transformer processing
-        x = rearrange(x, 'b t n d -> (b t) n d')  # [B * T, N, D]
-        x = self.space_transformer(x)  # [B, T, N, D]
-        x = rearrange(x, '(b t) n d -> b t n d', b=b)  # [B, T, N, D]
-
-        # Temporal transformer processing
-        attn_mask = self.create_temporal_attention_mask(t, n, device=x.device)  # [T * N, T * N]
-        x = rearrange(x, 'b t n d -> b (t n) d')  # [B, T * N, D]
-        x = self.temporal_transformer(x, attn_mask)  # [B, T * N, D]
-
-        # Reconstruction to output dimensions
-        x = rearrange(x, 'b (t n) d -> b t (n d)', t=t, n=n)  # [B, T, N * D]
-        x = self.reconstruction_head(x)  # [B, T, output_dim]
-        x = x.view(-1, t, *self.output_dim)  # [B, T, output_dim]
-        # TODO implement patch recovery
-        # TODO try classifying instead of regression
-        return x
+    
