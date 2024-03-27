@@ -48,8 +48,7 @@ def extract_data(path: str, var_names: list, level: str, levels: list, latitude:
                         data[var].append(nc_file.variables[var][:, levels[0]:levels[1],
                                          latitude[0]:latitude[1], longitude[0]:longitude[1]])
                     elif level == 'surface':
-                        data[var].append(
-                            nc_file.variables[var][:, latitude[0]:latitude[1], longitude[0]:longitude[1]])
+                        data[var].append(nc_file.variables[var][:, latitude[0]:latitude[1], longitude[0]:longitude[1]])
 
     # Concatenate data for each variable
     for var in var_names:
@@ -153,12 +152,9 @@ def preprocess_data(config: dict):
     # Extract configuration settings
     upper_var_names = config['preprocessing']['upper_var_names']
     surface_var_names = config['preprocessing']['surface_var_names']
-    raw_data_path = os.path.join(
-        config['global']['path'], config['global']['raw_data_path'])
-    constants_path = os.path.join(
-        config['global']['path'], config['global']['constants_path'])
-    processed_data_path = os.path.join(
-        config['global']['path'], config['global']['processed_data_path'])
+    raw_data_path = os.path.join(config['global']['path'], config['global']['raw_data_path'])
+    constants_path = os.path.join(config['global']['path'], config['global']['constants_path'])
+    processed_data_path = os.path.join(config['global']['path'], config['global']['processed_data_path'])
 
     # Extraction bounds
     longitude = config['preprocessing']['limits']['longitude']

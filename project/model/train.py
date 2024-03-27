@@ -28,8 +28,7 @@ class WarmupInverseSqrtDecayLR(_LRScheduler):
     def __init__(self, optimizer, warmup_steps, final_steps, last_epoch=-1, verbose=False):
         self.warmup_steps = warmup_steps
         self.final_steps = final_steps
-        super(WarmupInverseSqrtDecayLR, self).__init__(
-            optimizer, last_epoch, verbose)
+        super(WarmupInverseSqrtDecayLR, self).__init__(optimizer, last_epoch, verbose)
 
     def get_lr(self):
         if self.last_epoch < self.warmup_steps:
@@ -50,10 +49,12 @@ def validate_model(model, val_loader, loss_fn):
     with torch.no_grad():
         for data in val_loader:
             with torch.autocast(device_type=device.type, dtype=torch.float16):
-                upper, surface, labels = data['upper'].to(
-                    device), data['surface'].to(device), data['label'].to(device)
-                outputs = model(upper, surface)
-                val_loss += loss_fn(outputs, labels).item()
+                upper, surface, upper_label, surface_label = data['upper'].to(device), data['surface'].to(
+                    device), data['upper_label'].to(device), data['surface_label'].to(device)
+                upper_output, surface_output = model(upper, surface)
+                upper_loss = loss_fn(upper_output, upper_label).item()
+                surface_loss = loss_fn(surface_output, surface_label).item()
+                val_loss += (upper_loss + surface_loss)
     return val_loss / len(val_loader)
 
 
@@ -81,10 +82,9 @@ def train_model(config: dict):
     workers = config['train']['workers']
 
     # Convert the split years into strings
-    train_split = [str(year) for year in range(
-        train_split[0], train_split[-1] + 1)] if len(train_split) > 1 else [str(train_split[0])]
-    val_split = [str(year) for year in range(
-        val_split[0], val_split[-1] + 1)] if len(val_split) > 1 else [str(val_split[0])]
+    train_split = [str(year) for year in range(train_split[0], train_split[-1] + 1)
+                   ] if len(train_split) > 1 else [str(train_split[0])]
+    val_split = [str(year) for year in range(val_split[0], val_split[-1] + 1)] if len(val_split) > 1 else [str(val_split[0])]
 
     # Create dataset and dataloader for training and validation
     train_dataset = HDF5CustomDataset(
@@ -141,11 +141,12 @@ def train_model(config: dict):
         for i, data in enumerate(train_loader):
             # Runs the forward pass under autocast
             with torch.autocast(device_type=device.type, dtype=torch.float16):
-                upper, surface, labels = data['upper'].to(
-                    device), data['surface'].to(device), data['label'].to(device)
-                outputs = model(upper, surface)
-                loss = loss_fn(outputs, labels)
-                loss = loss / iters_to_accumulate
+                upper, surface, upper_label, surface_label = data['upper'].to(device), data['surface'].to(
+                    device), data['upper_label'].to(device), data['surface_label'].to(device)
+                upper_output, surface_output = model(upper, surface)
+                upper_loss = loss_fn(upper_output, upper_label)
+                surface_loss = loss_fn(surface_output, surface_label)
+                loss = (upper_loss + surface_loss) / iters_to_accumulate
 
             scaler.scale(loss).backward()
 
@@ -162,18 +163,14 @@ def train_model(config: dict):
             # Monitor validation loss at the midpoint of the epoch
             if (i == total_batches // 2 and config['train']['log_mid_loss']):
                 mid_epoch_val_loss = validate_model(model, val_loader, loss_fn)
-                print(
-                    f"Epoch [{epoch+0.5}/{epochs}], Val Loss: {mid_epoch_val_loss}")
-                wandb.log(
-                    {"Epoch": epoch + 0.5, "Val loss": mid_epoch_val_loss})
+                print(f"Epoch [{epoch+0.5}/{epochs}], Val Loss: {mid_epoch_val_loss}")
+                wandb.log({"Epoch": epoch + 0.5, "Val loss": mid_epoch_val_loss})
 
         # End-of-epoch validation
         val_loss = validate_model(model, val_loader, loss_fn)
         t2 = time.time()
-        print(
-            f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item()}, Val Loss: {val_loss}, Time: {round((t2-t1)/60, 2)}")
-        wandb.log(
-            {"Epoch": epoch+1, "Train loss": loss.item(), "Val loss": val_loss, "Time": round((t2-t1)/60, 2)})
+        print(f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item()}, Val Loss: {val_loss}, Time: {round((t2-t1)/60, 2)}")
+        wandb.log({"Epoch": epoch+1, "Train loss": loss.item(), "Val loss": val_loss, "Time": round((t2-t1)/60, 2)})
 
         # Save intermediate model
         if config['train']['save_model'] and best_val_loss > val_loss:

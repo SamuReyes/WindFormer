@@ -14,7 +14,6 @@ def init_model(config):
     patch_size_3d = config['model']['patch_size_3d']
     image_size_2d = config['model']['image_size_2d']
     patch_size_2d = config['model']['patch_size_2d']
-    output_dim = config['model']['output_dim']
     dim = config['model']['dim']
     depth = config['model']['depth']
     heads = config['model']['heads']
@@ -26,7 +25,7 @@ def init_model(config):
     sequence_length = config['train']['sequence_length']
 
     # Initialize the model and move it to the configured device
-    model = ViViT(image_size_3d, patch_size_3d, image_size_2d, patch_size_2d, sequence_length, output_dim,
+    model = ViViT(image_size_3d, patch_size_3d, image_size_2d, patch_size_2d, sequence_length,
                   dim, depth, heads, dim_head, dropout, emb_dropout, reconstr_dropout, scale_dim).to(device)
 
     return model
