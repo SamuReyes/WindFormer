@@ -9,6 +9,7 @@ from einops import rearrange
 from functools import reduce
 from operator import mul
 
+
 class ViViT(nn.Module):
     """
     ViViT model, a transformer-based model designed for processing both 
@@ -78,12 +79,13 @@ class ViViT(nn.Module):
         x = rearrange(x, 'b t n d -> b (t n) d')  # [B, T * N, D]
         x = self.temporal_transformer(x, attn_mask)  # [B, T * N, D]
 
-        x = rearrange(x, 'b (t n) d -> b t n d', t=t) # [B, T, N, D]
+        x = rearrange(x, 'b (t n) d -> b t n d', t=t)  # [B, T, N, D]
 
         # Patch recovery
         upper_output, surface_output = self.patch_recovery(x, b, t, self.to_patch_embedding_3d.num_patches_3d)
 
         return upper_output, surface_output
+
 
 class PatchEmbedding(nn.Module):
     """
@@ -125,7 +127,7 @@ class PatchEmbedding(nn.Module):
         x_2d = rearrange(x_2d, 'b t w h c -> (b t) c w h')  # [B*T, C, W, H]
 
         x_3d = self.conv_upper(x_3d)  # [B*T, D, Z//patchZ, W//patchW, H//patchH]
-        x_2d = self.conv_surface(x_2d) # [B*T, D, W//patchW, H//patchH]
+        x_2d = self.conv_surface(x_2d)  # [B*T, D, W//patchW, H//patchH]
 
         x_3d = rearrange(x_3d, '(b t) d z w h -> b t (z w h) d', b=b, t=t)  # [B, T, N, D]
         x_2d = rearrange(x_2d, '(b t) d w h -> b t (w h) d', b=b, t=t)  # [B, T, N, D]
@@ -136,7 +138,10 @@ class PatchEmbedding(nn.Module):
         x += self.pos_embedding
 
         return x
-    
+
+
+"""
+
 class PatchRecovery(nn.Module):
     def __init__(self, image_size_3d, image_size_2d, patch_size_3d, patch_size_2d, dim):
         super().__init__()
@@ -147,30 +152,30 @@ class PatchRecovery(nn.Module):
         self.tconv_surface = nn.ConvTranspose2d(dim, image_size_2d[2], kernel_size=patch_size_2d, stride=patch_size_2d)
 
     def forward(self, x, b, t, n_upper):
-        
+
         # Separa los datos de upper y surface
         x_upper = x[:, :, :n_upper, :]  # [B, T, n_upper, D]
         x_surface = x[:, :, n_upper:, :]  # [B, T, n_surface, D]
 
-        x_upper = rearrange(x_upper, 'b t n d -> (b t) n d') # [B*T, n_upper, D]
-        x_surface = rearrange(x_surface, 'b t n d -> (b t) n d') # [B*T, n_surface, D]
+        x_upper = rearrange(x_upper, 'b t n d -> (b t) n d')  # [B*T, n_upper, D]
+        x_surface = rearrange(x_surface, 'b t n d -> (b t) n d')  # [B*T, n_surface, D]
 
         x_upper = x_upper.permute(0, 2, 1)  # [B*T, D, n_upper]
-        x_surface = x_surface.permute(0, 2, 1) # [B*T, D, n_surface]
+        x_surface = x_surface.permute(0, 2, 1)  # [B*T, D, n_surface]
 
-        x_upper = x_upper.view(b*t, self.dim, *self.patch_shape_3d) # [B*T, D, Z//patchZ, W//patchW, H//patchH]
-        x_surface = x_surface.view(b*t, self.dim, *self.patch_shape_2d) # [B*T, D, W//patchW, H//patchH]
-        
-        output_upper = self.tconv_upper(x_upper) # [B*T, C, Z, W, H]
-        output_surface = self.tconv_surface(x_surface) # [B*T, C, W, H]
+        x_upper = x_upper.view(b*t, self.dim, *self.patch_shape_3d)  # [B*T, D, Z//patchZ, W//patchW, H//patchH]
+        x_surface = x_surface.view(b*t, self.dim, *self.patch_shape_2d)  # [B*T, D, W//patchW, H//patchH]
+
+        output_upper = self.tconv_upper(x_upper)  # [B*T, C, Z, W, H]
+        output_surface = self.tconv_surface(x_surface)  # [B*T, C, W, H]
 
         output_upper = rearrange(output_upper, '(b t) c z w h -> b t z w h c', b=b, t=t)  # [B, T, Z, W, H, C]
         output_surface = rearrange(output_surface, '(b t) c w h -> b t w h c', b=b, t=t)  # [B, T, W, H, C]
 
         return output_upper, output_surface
-    
-
 """
+
+
 class PatchRecovery(nn.Module):
     def __init__(self, image_size_3d, image_size_2d, patch_size_3d, patch_size_2d, dim):
         super().__init__()
@@ -179,12 +184,19 @@ class PatchRecovery(nn.Module):
         self.patch_shape_3d = [i//j for i, j in zip(image_size_3d[:3], patch_size_3d)]
         self.patch_shape_2d = [i//j for i, j in zip(image_size_2d[:2], patch_size_2d)]
 
-        self.tconv_upper = nn.ConvTranspose3d(dim, image_size_3d[3], kernel_size=patch_size_3d, stride=patch_size_3d)
-        self.tconv_surface = nn.ConvTranspose2d(dim, image_size_2d[2], kernel_size=patch_size_2d, stride=patch_size_2d)
+        intermediate_shape_3d = [i*2 for i in patch_size_3d]
+        intermediate_shape_2d = [i*2 for i in patch_size_2d]
+        intermediate_dim_3d = image_size_3d[3]*2
+        intermediate_dim_2d = image_size_2d[2]*2
+
+        self.tconv_upper = nn.ConvTranspose3d(
+            dim, intermediate_dim_3d, kernel_size=intermediate_shape_3d, stride=intermediate_shape_3d)
+        self.tconv_surface = nn.ConvTranspose2d(
+            dim, intermediate_dim_2d, kernel_size=intermediate_shape_2d, stride=intermediate_shape_2d)
 
         # TODO: try dilated convolutions
-        #self.conv_refine_upper = nn.Conv3d(image_size_3d[3], image_size_3d[3], kernel_size=3, stride=1, padding=1)
-        #self.conv_refine_surface = nn.Conv2d(image_size_2d[2], image_size_2d[2], kernel_size=3, stride=1, padding=1)
+        self.conv_refine_upper = nn.Conv3d(intermediate_dim_3d, image_size_3d[3], kernel_size=3, stride=2, padding=1)
+        self.conv_refine_surface = nn.Conv2d(intermediate_dim_2d, image_size_2d[2], kernel_size=3, stride=2, padding=1)
 
     def forward(self, x, b, t, n_upper):
 
@@ -210,7 +222,7 @@ class PatchRecovery(nn.Module):
         output_surface = rearrange(output_surface, '(b t) c w h -> b t w h c', b=b, t=t)  # [B, T, W, H, C]
 
         return output_upper, output_surface
-"""
+
 
 class PreNorm(nn.Module):
     """
@@ -331,4 +343,3 @@ class Transformer(nn.Module):
             x = attn(x, attn_mask=attn_mask) + x
             x = ff(x) + x          # Apply feed-forward and add residual
         return self.norm(x)        # Apply final layer normalization
-    
