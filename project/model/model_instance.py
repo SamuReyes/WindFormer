@@ -1,7 +1,8 @@
 import torch
 from model.model import ViViT
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+gpu = 1 # Change according GPU you want to use (0, 1, ...)
+device = torch.device(f'cuda:{gpu}' if torch.cuda.is_available() else 'cpu')
 
 
 def init_model(config):

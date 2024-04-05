@@ -10,19 +10,20 @@ services:
     privileged: true # this can avoid nvidia-smi error (Failed to initialize NVML: Unknown Error) after calling systemctl daemon-reload. However, this also gives all capabilities to the container. A better way is to diable privileged and mount devices manually (see below).
     init: true # Run an init inside the container that forwards signals and reaps processes. see https://docs.docker.com/compose/compose-file/compose-file-v3/
     pid: "host" # share pid with host to allow container to use nvidia-smi to show the processes ocupying GPUs 
+    shm_size: '12gb' # set shared memory size
     volumes:
       #- D:\archivos_locales\UPM\TFM\WindViT:/home/windgust/workspace:rw # windows
-      - /home/samuel/Documents/local/projects/UPM/TFM:/home/windgust/workspace:rw # linux
-      #- /home/samuelr/projects:/home/samuelr/projects # server
+      #- /home/samuel/Documents/local/projects/UPM/TFM:/home/windgust/workspace:rw # linux
+      - /home/samuelr/projects:/home/samuelr/projects # server
     ports:
       - "8860:8888" # port for jupyter
       - "2210:22" # port for ssh
-      - "1001:1001" # reserved some ports
-      - "1002:1002" # reserved some ports
-      - "1003:1003" # reserved some ports
+      #- "1001:1001" # reserved some ports
+      #- "1002:1002" # reserved some ports
+      #- "1003:1003" # reserved some ports
     devices:
       - /dev/nvidia0:/dev/nvidia0
-      #- /dev/nvidia1:/dev/nvidia1 # if you got multiple gpus
+      - /dev/nvidia1:/dev/nvidia1 # if you got multiple gpus
       - /dev/nvidiactl:/dev/nvidiactl
       - /dev/nvidia-caps:/dev/nvidia-caps
       - /dev/nvidia-modeset:/dev/nvidia-modeset
@@ -33,8 +34,8 @@ services:
         reservations: # whether use gpu or not
           devices:
             - capabilities: ["gpu"]
-              device_ids: ["0"]
-              #device_ids: ["0","1"] # if you got multiple GPUs
+              #device_ids: ["0"]
+              device_ids: ["0","1"] # if you got multiple GPUs
         # limits: # set cpu  and memory limits
           # cpus: 48
           # memory: 40960M
