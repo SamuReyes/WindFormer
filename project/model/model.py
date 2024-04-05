@@ -168,6 +168,49 @@ class PatchRecovery(nn.Module):
         output_surface = rearrange(output_surface, '(b t) c w h -> b t w h c', b=b, t=t)  # [B, T, W, H, C]
 
         return output_upper, output_surface
+    
+
+"""
+class PatchRecovery(nn.Module):
+    def __init__(self, image_size_3d, image_size_2d, patch_size_3d, patch_size_2d, dim):
+        super().__init__()
+        self.dim = dim
+
+        self.patch_shape_3d = [i//j for i, j in zip(image_size_3d[:3], patch_size_3d)]
+        self.patch_shape_2d = [i//j for i, j in zip(image_size_2d[:2], patch_size_2d)]
+
+        self.tconv_upper = nn.ConvTranspose3d(dim, image_size_3d[3], kernel_size=patch_size_3d, stride=patch_size_3d)
+        self.tconv_surface = nn.ConvTranspose2d(dim, image_size_2d[2], kernel_size=patch_size_2d, stride=patch_size_2d)
+
+        # TODO: try dilated convolutions
+        #self.conv_refine_upper = nn.Conv3d(image_size_3d[3], image_size_3d[3], kernel_size=3, stride=1, padding=1)
+        #self.conv_refine_surface = nn.Conv2d(image_size_2d[2], image_size_2d[2], kernel_size=3, stride=1, padding=1)
+
+    def forward(self, x, b, t, n_upper):
+
+        x_upper = x[:, :, :n_upper, :]  # [B, T, n_upper, D]
+        x_surface = x[:, :, n_upper:, :]  # [B, T, n_surface, D]
+
+        x_upper = rearrange(x_upper, 'b t n d -> (b t) n d')  # [B*T, n_upper, D]
+        x_surface = rearrange(x_surface, 'b t n d -> (b t) n d')  # [B*T, n_surface, D]
+
+        x_upper = x_upper.permute(0, 2, 1)  # [B*T, D, n_upper]
+        x_surface = x_surface.permute(0, 2, 1)  # [B*T, D, n_surface]
+
+        x_upper = x_upper.view(b*t, self.dim, *self.patch_shape_3d)  # [B*T, D, Z//patchZ, W//patchW, H//patchH]
+        x_surface = x_surface.view(b*t, self.dim, *self.patch_shape_2d)  # [B*T, D, W//patchW, H//patchH]
+
+        output_upper = self.tconv_upper(x_upper)  # [B*T, C, Z, W, H]
+        output_surface = self.tconv_surface(x_surface)   # [B*T, C, W, H]
+
+        output_upper = self.conv_refine_upper(output_upper)  # [B*T, C, Z, W, H]
+        output_surface = self.conv_refine_surface(output_surface)  # [B*T, C, W, H]
+
+        output_upper = rearrange(output_upper, '(b t) c z w h -> b t z w h c', b=b, t=t)  # [B, T, Z, W, H, C]
+        output_surface = rearrange(output_surface, '(b t) c w h -> b t w h c', b=b, t=t)  # [B, T, W, H, C]
+
+        return output_upper, output_surface
+"""
 
 class PreNorm(nn.Module):
     """
