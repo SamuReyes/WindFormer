@@ -18,8 +18,8 @@ wandb.login()
 run = wandb.init(
     project="WindViVit",
     
-    notes="Model 3 - BERT Large params",
-    tags=["28 years data", "BERT Large", "Convolutional patching"]
+    notes="Model 6 - Model 4 with BERT large params (more data and epochs)",
+    tags=["43 years data", "BERT Large", "Convolutional patching"]
 )
 
 wandb_config = wandb.config

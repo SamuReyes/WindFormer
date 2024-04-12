@@ -12,7 +12,7 @@ preprocessing:
     latitude:  [10, 28]
     longitude: [18, 36]
     levels: [0, 9]
-    years: [1990, 2017]
+    years: [1981, 2023]
 barajas:
   latitude: 40.5
   longitude: -3.5
@@ -30,20 +30,20 @@ model:
   reconstr_dropout: 0.1
   scale_dim: 4 #2 / 4 / 4
 train:
-  batch_size: 32
+  batch_size: 64
   iters_to_accumulate: 1
   sequence_length: 6 # seq_len * num_patches = 256 (6)
   learning_rate: 0.0001
-  warmup_ratio: 0 
-  epochs: 50
-  train_split: [1990, 2015]
-  val_split: [2016]
-  test_split: [2017]
+  warmup_ratio: 0
+  epochs: 100
+  train_split: [1981, 2021]
+  val_split: [2022]
+  test_split: [2023]
   prefetch: 2
   workers: 2
   log_mid_loss: True
   save_model: True
-  model_name: model_3
+  model_name: model_6
 plots:
   pred_vs_true: True
 
