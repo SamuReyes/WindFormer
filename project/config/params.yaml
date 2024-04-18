@@ -3,24 +3,20 @@ global:
   raw_data_path: data/raw
   processed_data_path: data/processed
   constants_path: data/constants
+  real_data_path: data/real
   checkpoints_path: checkpoints
   reports_path: reports
 preprocessing: 
   upper_var_names: ['time', 'u', 'v', 'q', 't', 'd', 'z', 'w', 'vo']
   surface_var_names: ['time', 'u100', 'v100', 'u10', 'v10', 'd2m', 't2m', 'z', 'msl', 'i10fg']
   limits:
-    latitude:  [10, 28]
-    longitude: [18, 36]
+    latitude:  [9, 34]
+    longitude: [12, 27]
     levels: [0, 9]
-    years: [1981, 2023]
-barajas:
-  latitude: 40.5
-  longitude: -3.5
+    years: [1979, 2023]
 model:
-  image_size_3d: [9, 18, 18, 8]
-  patch_size_3d: [3, 6, 6]
-  image_size_2d: [18, 18, 9]
-  patch_size_2d: [6, 6]
+  image_size_2d: [25, 15, 9]
+  patch_size_2d: [5, 5]
   dim: 768 #512 / 768 / 1024
   depth: 12 #6 / 12 / 24
   heads: 12 #6 / 12 / 16
@@ -32,13 +28,13 @@ model:
 train:
   batch_size: 64
   iters_to_accumulate: 1
-  sequence_length: 12 # seq_len * num_patches = 256 (6)
+  sequence_length: 32 # seq_len * num_patches = 256 (6)
   learning_rate: 0.0001
   warmup_ratio: 0
-  epochs: 100
-  train_split: [1981, 2021]
-  val_split: [2022]
-  test_split: [2023]
+  epochs: 50
+  train_split: [[1979, 2009], [2012, 2023]]
+  val_split: [2010]
+  test_split: [2011]
   prefetch: 2
   workers: 2
   log_mid_loss: True
@@ -46,4 +42,21 @@ train:
   model_name: model_7
 plots:
   pred_vs_true: True
-
+real_data:
+  years: [2002, 2012]
+  train_split: [2002, 2010]
+  val_split: [2011]
+  test_split: [2012]  
+  locations:
+    pena:
+      latitude: 40.25
+      longitude: -6.75
+    jara:
+      latitude: 37.0
+      longitude: -5.0
+    minon:
+      latitude: 42.5
+      longitude: -3.75
+    barajas:
+      latitude: 40.5
+      longitude: -3.5

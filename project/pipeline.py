@@ -16,24 +16,28 @@ os.environ['WANDB_NOTEBOOK_NAME'] = "pipeline.ipynb"
 wandb.login()
 
 run = wandb.init(
-    project="WindViVit",
+    project="WindFormer",
     
-    notes="Model 6 - Model 4 with BERT large params (more data and epochs)",
-    tags=["43 years data", "BERT Large", "Convolutional patching"]
+    notes="Model 7 - First pretrained model",
+    tags=["45 years data", "BERT Base", "32 time steps"]
 )
 
 wandb_config = wandb.config
 
 assign_config(wandb_config, config)
 
+process_climatology(config)
+preprocess_data(config)
+normalize_data(config)
+
 train_model(config)
 
 results = infer(config)
 
 rmse = calculate_rmse(results)
-wandb.log({"upper_rmse": rmse["upper_rmse"], "surface_rmse": rmse["surface_rmse"]})
+wandb.log({"rmse": rmse})
 
-fig = plot_heatmaps(config, results, 5)
+fig = plot_heatmaps(config, results, 31)
 wandb.log({"heatmap": fig})
 
 run.finish()
