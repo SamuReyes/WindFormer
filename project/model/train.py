@@ -137,6 +137,7 @@ def train_model(config: dict):
         # Training iteration over the dataset
         model.train()
         t1 = time.time()
+        total_loss = 0
 
         for i, data in enumerate(train_loader):
             # Runs the forward pass under autocast
@@ -148,6 +149,7 @@ def train_model(config: dict):
                 surface_loss = loss_fn(surface_output, surface_label)
                 loss = (upper_loss + surface_loss) / iters_to_accumulate
 
+            total_loss += (upper_loss.item() + surface_loss.item())
             scaler.scale(loss).backward()
 
             if (i + 1) % iters_to_accumulate == 0:
@@ -167,10 +169,11 @@ def train_model(config: dict):
                 wandb.log({"Epoch": epoch + 0.5, "Val loss": mid_epoch_val_loss})
 
         # End-of-epoch validation
+        average_loss = total_loss / len(train_loader)
         val_loss = validate_model(model, val_loader, loss_fn)
         t2 = time.time()
-        print(f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item()}, Val Loss: {val_loss}, Time: {round((t2-t1)/60, 2)}")
-        wandb.log({"Epoch": epoch+1, "Train loss": loss.item(), "Val loss": val_loss, "Time": round((t2-t1)/60, 2)})
+        print(f"Epoch [{epoch+1}/{epochs}], Loss: {average_loss}, Val Loss: {val_loss}, Time: {round((t2-t1)/60, 2)}")
+        wandb.log({"Epoch": epoch+1, "Train loss": average_loss, "Val loss": val_loss, "Time": round((t2-t1)/60, 2)})
 
         # Save intermediate model
         if config['train']['save_model'] and best_val_loss > val_loss:
