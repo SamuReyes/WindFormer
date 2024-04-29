@@ -20,7 +20,7 @@ class ViViT(nn.Module):
     and aggregation.
     """
 
-    def __init__(self, image_size_2d, patch_size_2d, seq_len, dim=192, depth=4, heads=3, dim_head=64, dropout=0., emb_dropout=0., reconstr_dropout=0., scale_dim=4):
+    def __init__(self, image_size_2d, patch_size_2d, seq_len, dim=192, depth=4, heads=3, dim_head=64, dropout=0., emb_dropout=0., scale_dim=4, active_indices=None):
         super().__init__()
 
         self.image_size_2d = image_size_2d
@@ -42,6 +42,33 @@ class ViViT(nn.Module):
         # Reconstruction head
         self.patch_recovery = PatchRecovery(image_size_2d, patch_size_2d, dim)
 
+        # Active patch indices for selective attention
+        self.active_indices = active_indices
+
+    def create_spatial_attention_mask(self, n, device):
+        """
+        Creates a spatial attention mask for a transformer where only specific patches are allowed to attend to each other.
+
+        Parameters:
+        - n (int): Total number of patches.
+        - active_indices (list of int): Indices of patches that can attend to each other.
+        - device (torch.device): Device to create the mask on.
+
+        Returns:
+        - torch.Tensor: A mask of shape (n, n) where only specified patches are attending to each other.
+        """
+        if self.active_indices:
+            # Create a mask filled with zeros
+            mask = torch.zeros((n, n), device=device)
+
+            # Enable attention only between specified indices
+            for idx in self.active_indices:
+                mask[idx, self.active_indices] = 1 
+        else:
+            mask = torch.ones((n, n), device=device)
+
+        return mask.bool()
+
     def create_temporal_attention_mask(self, t, n, device):
         """
         Creates a mask for the temporal transformer to enable selective attention.
@@ -49,7 +76,9 @@ class ViViT(nn.Module):
         The mask is a lower triangular matrix, which allows each time step to 
         only attend to previous and current time steps, not future ones.
         """
-        mask = torch.ones((t * n, t * n), device=device)
+        spatial_matrix = self.create_spatial_attention_mask(n, device)
+        mask = torch.tile(spatial_matrix, (t, t))
+            
         for i in range(t):
             mask[i * n:(i + 1) * n, (i + 1) * n:] = 0  # Mask future time steps
 
@@ -68,14 +97,18 @@ class ViViT(nn.Module):
         x = self.dropout(x)
 
         # Spatial transformer processing
+        if self.active_indices:
+            spatial_attn_mask = self.create_spatial_attention_mask(n, x.device)  # [N, N]
+        else:
+            spatial_attn_mask = None
         x = rearrange(x, 'b t n d -> (b t) n d')  # [B * T, N, D]
-        x = self.space_transformer(x)  # [B, T, N, D]
+        x = self.space_transformer(x, spatial_attn_mask)  # [B, T, N, D]
         x = rearrange(x, '(b t) n d -> b t n d', b=b)  # [B, T, N, D]
 
         # Temporal transformer processing
-        attn_mask = self.create_temporal_attention_mask(t, n, device=x.device)  # [T * N, T * N]
+        temp_attn_mask = self.create_temporal_attention_mask(t, n, x.device)  # [T * N, T * N]
         x = rearrange(x, 'b t n d -> b (t n) d')  # [B, T * N, D]
-        x = self.temporal_transformer(x, attn_mask)  # [B, T * N, D]
+        x = self.temporal_transformer(x, temp_attn_mask)  # [B, T * N, D]
 
         x = rearrange(x, 'b (t n) d -> b t n d', t=t)  # [B, T, N, D]
 
@@ -108,7 +141,7 @@ class PatchEmbedding(nn.Module):
         # Calculate the number of patches
         self.num_patches = (W // patch_w) * (H // patch_h)
 
-        self.conv_surface = nn.Conv2d(in_channels=9, out_channels=dim, kernel_size=patch_size, stride=patch_size)
+        self.conv_surface = nn.Conv2d(in_channels=C, out_channels=dim, kernel_size=patch_size, stride=patch_size)
 
         # Positional embedding
         self.pos_embedding = nn.Parameter(torch.randn(

@@ -51,7 +51,7 @@ def validate_model(model, val_loader, loss_fn):
             with torch.autocast(device_type=device.type, dtype=torch.float16):
                 surface, surface_label = data['surface'].to(device), data['surface_label'].to(device)
                 surface_output = model(surface)
-                val_loss = loss_fn(surface_output, surface_label).item()
+                val_loss += loss_fn(surface_output, surface_label).item()
     return val_loss / len(val_loader)
 
 
@@ -72,15 +72,17 @@ def train_model(config: dict):
     learning_rate = config['train']['learning_rate']
     epochs = config['train']['epochs']
     data_path = os.path.join(
-        config['global']['path'], config['global']['processed_data_path'], 'data.hdf5')
+        config['global']['path'], config['global']['processed_data_path'], config['global']['data_file'])
     train_split = config['train']['train_split']
     val_split = config['train']['val_split']
     prefetch_factor = config['train']['prefetch']
     workers = config['train']['workers']
 
     # Convert the split years into strings
-    train_split = [str(year) for group in train_split for year in range(group[0], group[-1] + 1)
-                   ] if len(train_split) > 1 else [str(train_split[0])]
+    if isinstance(train_split[0], list):
+        train_split = [str(year) for group in train_split for year in range(group[0], group[-1] + 1)]
+    else:
+        train_split = [str(year) for year in range(train_split[0], train_split[-1] + 1)]
     val_split = [str(year) for year in range(val_split[0], val_split[-1] + 1)] if len(val_split) > 1 else [str(val_split[0])]
 
     # Create dataset and dataloader for training and validation
@@ -110,6 +112,11 @@ def train_model(config: dict):
 
     # Initialize the model
     model = init_model(config)
+
+    # Load the model weights if a pretrained model is provided
+    if config['model']['pretrained']:
+        pretrained_model = torch.load(os.path.join(config['global']['path'], config['global']['checkpoints_path'], config['model']['pretrained'] + '.pth'))
+        model.load_state_dict(pretrained_model)
 
     # Initialize the gradient scaler for mixed precision training and gradient accumulation
     scaler = GradScaler()
@@ -154,7 +161,7 @@ def train_model(config: dict):
 
                 optimizer.zero_grad()
 
-            if i % 100 == 0:
+            if i % 100 == 0:  
                 wandb.log({"Step": i, "LR": optimizer.param_groups[0]['lr']})
 
             # Monitor validation loss at the midpoint of the epoch

@@ -1,13 +1,14 @@
 from utils.config_loader import load_config, assign_config
 from processing.climatology import process_climatology
 from processing.preprocessing import preprocess_data
+from processing.preprocessing_real import preprocess_real_data
 from processing.normalize import normalize_data
 from model.train import train_model
-from model.inference import infer
+from model.inference import infer, infer_future
 from model.metrics import calculate_rmse
 from visualization.plots import plot_heatmaps
 
-config = load_config("./config/params.yaml")
+config = load_config("./config/params_real.yaml")
 
 import wandb
 import os
@@ -18,17 +19,13 @@ wandb.login()
 run = wandb.init(
     project="WindFormer",
     
-    notes="Model 7 - First pretrained model",
-    tags=["45 years data", "BERT Base", "32 time steps"]
+    notes="Model 12 - Real data only wind",
+    tags=["10 years data", "BERT Base", "32 time steps"]
 )
 
 wandb_config = wandb.config
 
 assign_config(wandb_config, config)
-
-process_climatology(config)
-preprocess_data(config)
-normalize_data(config)
 
 train_model(config)
 

@@ -2,7 +2,7 @@ global:
   path: /home/samuelr/projects/WindViViT/project
   raw_data_path: data/raw
   processed_data_path: data/processed
-  data_file: data.hdf5 # real_data.hdf5 #data.hdf5
+  data_file: real_data.hdf5 # real_data.hdf5 / data.hdf5
   constants_path: data/constants
   real_data_path: data/real
   checkpoints_path: checkpoints
@@ -22,26 +22,26 @@ model:
   depth: 12 #6 / 12 / 24
   heads: 12 #6 / 12 / 16
   dim_head: 64 # 32 / 64 / 64
-  dropout: 0.1 # 0.1
-  emb_dropout: 0.1 # 0.1
+  dropout: 0.1
+  emb_dropout: 0.1
   scale_dim: 4 #2 / 4 / 4
-  pretrained: False #model_7
-  active_indices: False #[2,6,13] / False
+  pretrained: model_10_pretrained # False
+  active_indices: False #[2,6,13]
 train:
   batch_size: 64
   iters_to_accumulate: 1
   sequence_length: 32 # seq_len * num_patches = 256 (6)
-  learning_rate: 0.0001 #0.0001 / 0.00001
+  learning_rate: 0.00001 #0.0001 / 0.00001
   warmup_ratio: 0
   epochs: 70
-  train_split: [[1979,2010],[2013,2023]] #[2003, 2009]
-  val_split: [2011]
-  test_split: [2012]
+  train_split: [2002, 2009] #[[1979,2009],[2012,2023]]
+  val_split: [2010]
+  test_split: [2011]
   prefetch: 2
   workers: 2
   log_mid_loss: True
   save_model: True
-  model_name: model_10_pretrained
+  model_name: model_12_real
 plots:
   pred_vs_true: True
 real_data:

@@ -142,7 +142,7 @@ def save_real_data(output_file_path:str, jara:pd.DataFrame, pena:pd.DataFrame, m
                 for time in date_range:
                     if time in year_df.index:
                         lat_idx, lon_idx = idx
-                        data_array[date_range.get_loc(time), idx, u10_idx] = year_df.at[time, 'U']
+                        data_array[date_range.get_loc(time), lat_idx, lon_idx, u10_idx] = year_df.at[time, 'U']
                         data_array[date_range.get_loc(time), lat_idx, lon_idx, v10_idx] = year_df.at[time, 'V']
             
             year_group = output_file.require_group(str(year))

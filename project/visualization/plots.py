@@ -18,7 +18,7 @@ def plot_heatmaps(config: dict, results: list, seq=5):
     surface_var_names = config["preprocessing"]["surface_var_names"][1:]
     
     nrows = 1
-    ncols = max(len(surface_var_names)) * 2 + 1
+    ncols = len(surface_var_names) * 2 + 1
     
     fig = plt.figure(figsize=(20 + 2, 2 * nrows + 1))
     gs = GridSpec(nrows, ncols, figure=fig)

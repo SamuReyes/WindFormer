@@ -20,7 +20,7 @@ class HDF5CustomDataset(Dataset):
             self.years = years
 
             # Calculate lengths per year
-            self.lengths_per_year = [file[year]['upper']['data'].shape[0] -
+            self.lengths_per_year = [file[year]['surface']['data'].shape[0] -
                                      (self.sequence_length + 1) for i, year in enumerate(self.years)]
 
         # Calculate the total length
@@ -48,6 +48,8 @@ class HDF5CustomDataset(Dataset):
         # Convert to torch tensors
         data = {
             'surface': torch.from_numpy(surface_sequence).float(),
-            'surface_label': torch.from_numpy(surface_label).float()
+            'surface_label': torch.from_numpy(surface_label).float(),
+            'year': year_key,
+            'index': within_year_idx
         }
         return data
