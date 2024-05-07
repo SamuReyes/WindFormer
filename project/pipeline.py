@@ -19,7 +19,7 @@ wandb.login()
 run = wandb.init(
     project="WindFormer",
     
-    notes="Model 12 - Real data only wind",
+    notes="Model 13 - Real data only wind",
     tags=["10 years data", "BERT Base", "32 time steps"]
 )
 

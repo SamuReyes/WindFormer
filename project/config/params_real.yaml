@@ -31,9 +31,9 @@ train:
   batch_size: 64
   iters_to_accumulate: 1
   sequence_length: 32 # seq_len * num_patches = 256 (6)
-  learning_rate: 0.00001 #0.0001 / 0.00001
+  learning_rate: 0.0001 #0.0001 / 0.00001
   warmup_ratio: 0
-  epochs: 70
+  epochs: 45
   train_split: [2002, 2009] #[[1979,2009],[2012,2023]]
   val_split: [2010]
   test_split: [2011]
@@ -41,7 +41,7 @@ train:
   workers: 2
   log_mid_loss: True
   save_model: True
-  model_name: model_12_real
+  model_name: model_13_real
 plots:
   pred_vs_true: True
 real_data:

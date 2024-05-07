@@ -9,7 +9,6 @@ from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader
 from model.dataset import HDF5CustomDataset
 from model.model_instance import init_model, device
-from model.scheduler import WarmUpScheduler, LinearLR
 
 
 class WarmupInverseSqrtDecayLR(_LRScheduler):
