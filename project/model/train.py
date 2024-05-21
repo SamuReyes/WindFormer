@@ -3,45 +3,11 @@ import os
 import torch
 import wandb
 import time
-from torch.optim.lr_scheduler import _LRScheduler
 from transformers import get_linear_schedule_with_warmup
 from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader
 from model.dataset import HDF5CustomDataset
 from model.model_instance import init_model, device
-from model.scheduler import WarmUpScheduler, LinearLR
-
-
-class WarmupInverseSqrtDecayLR(_LRScheduler):
-    """ 
-    Learning rate scheduler that implements a two-phase adjustment strategy:
-    a linear increase during warmup followed by an inverse square root decrease.
-
-    Parameters:
-    - optimizer (Optimizer): The optimizer to wrap.
-    - warmup_steps (int): Steps for the linear warmup phase.
-    - final_steps (int): Total steps for training, affecting the decay phase.
-    - last_epoch (int): Last epoch index for resuming training (default: -1).
-    - verbose (bool): Enables verbose output (default: False).
-    """
-
-    def __init__(self, optimizer, warmup_steps, final_steps, last_epoch=-1, verbose=False):
-        self.warmup_steps = warmup_steps
-        self.final_steps = final_steps
-        super(WarmupInverseSqrtDecayLR, self).__init__(optimizer, last_epoch, verbose)
-
-    def get_lr(self):
-        if self.last_epoch < self.warmup_steps:
-            # Lineal warmup
-            lr_scale = self.last_epoch / self.warmup_steps
-            print("Warmup phase:", lr_scale)
-        else:
-            # Decay phase
-            lr_scale = (self.warmup_steps ** 0.5) * (self.last_epoch ** -0.5)
-            print("Decay phase:", lr_scale)
-
-        return [base_lr * lr_scale for base_lr in self.base_lrs]
-
 
 def validate_model(model, val_loader, loss_fn):
     model.eval()
@@ -75,15 +41,17 @@ def train_model(config: dict):
     learning_rate = config['train']['learning_rate']
     epochs = config['train']['epochs']
     data_path = os.path.join(
-        config['global']['path'], config['global']['processed_data_path'], 'data.hdf5')
+        config['global']['path'], config['global']['processed_data_path'], config['global']['data_file'])
     train_split = config['train']['train_split']
     val_split = config['train']['val_split']
     prefetch_factor = config['train']['prefetch']
     workers = config['train']['workers']
 
-    # Convert the split years into strings
-    train_split = [str(year) for year in range(train_split[0], train_split[-1] + 1)
-                   ] if len(train_split) > 1 else [str(train_split[0])]
+     # Convert the split years into strings
+    if isinstance(train_split[0], list):
+        train_split = [str(year) for group in train_split for year in range(group[0], group[-1] + 1)]
+    else:
+        train_split = [str(year) for year in range(train_split[0], train_split[-1] + 1)]
     val_split = [str(year) for year in range(val_split[0], val_split[-1] + 1)] if len(val_split) > 1 else [str(val_split[0])]
 
     # Create dataset and dataloader for training and validation
@@ -113,6 +81,11 @@ def train_model(config: dict):
 
     # Initialize the model
     model = init_model(config)
+
+    # Load the model weights if a pretrained model is provided
+    if config['model']['pretrained']:
+        pretrained_model = torch.load(os.path.join(config['global']['path'], config['global']['checkpoints_path'], config['model']['pretrained'] + '.pth'))
+        model.load_state_dict(pretrained_model)
 
     # Initialize the gradient scaler for mixed precision training and gradient accumulation
     scaler = GradScaler()

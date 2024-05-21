@@ -90,7 +90,7 @@ def save_constants(raw_data_path: str, constants_path: str, levels: list, latitu
                 nc_file.variables["lsm"][:, latitude[0]:latitude[1]+1, longitude[0]:longitude[1]+1].filled(np.nan).astype(np.float32))
 
 
-def join_hdf5_data(directory):
+def join_hdf5_data(config, directory):
     """
     Reads upper and surface data from multiple HDF5 files and organizes them into a single HDF5 file.
     The data is structured into groups by year, each containing subgroups for 'upper' and 'surface' data.
@@ -107,7 +107,7 @@ def join_hdf5_data(directory):
     surface_files = sorted(glob.glob(surface_files_pattern))
 
     # Output file path
-    output_file_path = os.path.join(directory, "data.hdf5")
+    output_file_path = os.path.join(directory, config['global']['data_file'])
 
     # Create or open the output HDF5 file
     with h5py.File(output_file_path, 'w') as output_file:
@@ -202,7 +202,7 @@ def preprocess_data(config: dict):
         with h5py.File(os.path.join(processed_data_path, f"{year}-surface.hdf5"), 'w') as f:
             f.create_dataset(f"{year}-surface", data=surface_data)
 
-    join_hdf5_data(processed_data_path)
+    join_hdf5_data(config, processed_data_path)
 
     # Save constants and time
     save_constants(raw_data_path, constants_path, levels, latitude, longitude)
