@@ -2,13 +2,13 @@ global:
   path: /home/samuelr/projects/WindViViT/project
   raw_data_path: data/raw
   processed_data_path: data/processed
-  data_file: data.hdf5
+  data_file: data2.hdf5
   constants_path: data/constants
   checkpoints_path: checkpoints
   reports_path: reports
 preprocessing: 
-  upper_var_names: ['time', 'u', 'v', 'q', 't', 'd', 'z', 'w', 'vo']
-  surface_var_names: ['time', 'u100', 'v100', 'u10', 'v10', 'd2m', 't2m', 'z', 'msl', 'i10fg']
+  upper_var_names: ['time', 'u', 'v', 't', 'd', 'z', 'w']
+  surface_var_names: ['time', 'u100', 'v100', 'u10', 'v10', 'd2m', 't2m', 'msl', 'i10fg']
   pressure_levels: ['250','500','600','700','800','850','900','925','950']
   limits:
     latitude:  [10, 28]
@@ -19,9 +19,9 @@ barajas:
   latitude: 40.5
   longitude: -3.5
 model:
-  image_size_3d: [9, 18, 18, 8]
+  image_size_3d: [9, 18, 18, 6]
   patch_size_3d: [3, 6, 6]
-  image_size_2d: [18, 18, 9]
+  image_size_2d: [18, 18, 8]
   patch_size_2d: [6, 6]
   dim: 768 #512 / 768 / 1024
   depth: 12 #6 / 12 / 24
@@ -38,7 +38,7 @@ train:
   sequence_length: 12 # seq_len * num_patches = 256 (6)
   learning_rate: 0.0001
   warmup_ratio: 0
-  epochs: 50
+  epochs: 100
   train_split: [1979,2019]
   val_split: [2020,2021]
   test_split: [2022,2023]
@@ -46,7 +46,7 @@ train:
   workers: 2
   log_mid_loss: True
   save_model: True
-  model_name: final-2-2
+  model_name: final-3
 plots:
   pred_vs_true: True
 

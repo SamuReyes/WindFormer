@@ -24,7 +24,7 @@ def normalize_data(config: dict):
     mean_dict = {level: np.zeros(upper_vars) if level > 0 else np.zeros(surface_vars) for level in range(levels)}
     std_dict = {level: np.zeros(upper_vars) if level > 0 else np.zeros(surface_vars) for level in range(levels)}
     mean_dict_years = {
-        year: {level: np.zeros(8) if level > 0 else np.zeros(9) for level in range(levels)} for year in range(years[0], years[1] + 1)
+        year: {level: np.zeros(upper_vars) if level > 0 else np.zeros(surface_vars) for level in range(levels)} for year in range(years[0], years[1] + 1)
     }
 
     # Number of data points to compute mean and std
