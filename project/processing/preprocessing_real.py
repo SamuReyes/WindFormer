@@ -167,7 +167,7 @@ def preprocess_real_data(config:dict):
 
     # Set paths
     real_data_path = os.path.join(config['global']['path'], config['global']['real_data_path'])
-    reanalysis_data_path = os.path.join(config['global']['path'], config['global']['processed_data_path'], 'data.hdf5')
+    reanalysis_data_path = os.path.join(config['global']['path'], config['global']['processed_data_path'], config['global']['data_file'])
     constants_path = os.path.join(config['global']['path'], config['global']['constants_path'])
     output_file_path = os.path.join(config['global']['path'], config['global']['processed_data_path'], 'real_data.hdf5')
 

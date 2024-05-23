@@ -2,7 +2,7 @@ global:
   path: /home/samuelr/projects/WindViViT/project
   raw_data_path: data/raw
   processed_data_path: data/processed
-  data_file: real_data.hdf5 # real_data.hdf5 / data.hdf5
+  data_file: data.hdf5 # real_data.hdf5 / data.hdf5
   constants_path: data/constants
   real_data_path: data/real
   checkpoints_path: checkpoints
@@ -45,7 +45,7 @@ train:
 plots:
   pred_vs_true: True
 real_data:
-  years: [2002, 2012]
+  years: [1995, 2014]
   locations:
     pena:
       latitude: 40.25
