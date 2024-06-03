@@ -63,16 +63,16 @@ class ViViT(nn.Module):
 
         b, t, n, _ = x.shape
 
-        # Add temporal embedding
-        temp_emb = self.temporal_embedding[:, :t, :, :]
-        x += temp_emb
-
         x = self.dropout(x)
 
         # Spatial transformer processing
         x = rearrange(x, 'b t n d -> (b t) n d')  # [B * T, N, D]
         x = self.space_transformer(x)  # [B, T, N, D]
         x = rearrange(x, '(b t) n d -> b t n d', b=b)  # [B, T, N, D]
+
+        # Add temporal embedding
+        temp_emb = self.temporal_embedding[:, :t, :, :]
+        x += temp_emb
 
         # Temporal transformer processing
         attn_mask = self.create_temporal_attention_mask(t, n, device=x.device)  # [T * N, T * N]
