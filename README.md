@@ -4,19 +4,19 @@
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-  <a href="https://github.com/SamuReyes/WindViViT">
+  <a href="https://github.com/SamuReyes/WindFormer">
     <!-- <img src="images/logo.png" alt="Logo" width="80" height="80"> -->
   </a>
 
-  <h3 align="center">WindViViT</h3>
+  <h3 align="center">WindFormer</h3>
 
   <p align="center">
-    🚧 Project under construction 🚧
+    Pretraining a Spatio-Temporal Transformer for Wind Forecasting
     <br />
     <br />
-    <a href="https://github.com/SamuReyes/WindViViT/issues">Report Bug</a>
+    <a href="https://github.com/SamuReyes/WindFormer/issues">Report Bug</a>
     ·
-    <a href="https://github.com/SamuReyes/WindViViT/issues">Request Feature</a>
+    <a href="https://github.com/SamuReyes/WindFormer/issues">Request Feature</a>
     <p>
     <img src="assets/spain_wind.png" width="60%">
     </p>
@@ -72,7 +72,7 @@
 
 ### Prerequisites
 
-
+ViViT
 ### Installation
 
 
@@ -95,7 +95,7 @@ To install the project, follow these steps:
 **Clone the Repository:** 
 
 ```bash
-git clone https://github.com/SamuReyes/WindViViT
+git clone https://github.com/SamuReyes/WindFormer
 ```
 
 **Configure Docker Compose:**
@@ -131,28 +131,11 @@ By following these steps, you should have the project running on your local mach
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
-
 <!-- USAGE EXAMPLES -->
 ## Usage
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- ROADMAP -->
-## Roadmap
-
-- [x] Processing and Normalization
-- [x] EDA
-- [ ] Build the model
-    - [ ] Patch embedding
-    - [ ] Attention
-    - [ ] ...
-
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
 
 
 <!-- CONTRIBUTING -->
