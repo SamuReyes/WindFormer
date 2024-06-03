@@ -29,7 +29,7 @@ class ViViT(nn.Module):
         self.upper_size = reduce(mul, self.image_size_3d)
 
         # Patch embedding layers for 3D and 2D data
-        self.to_patch_embedding_3d = PatchEmbedding(self.image_size_3d, patch_size_3d, dim)
+        self.to_patch_embedding_3d = PatchEmbedding(self.image_size_3d, self.image_size_2d, patch_size_3d, dim)
 
         # Temporal embedding
         self.temporal_embedding = nn.Parameter(torch.randn(1, seq_len, 1, dim))
@@ -63,16 +63,16 @@ class ViViT(nn.Module):
 
         b, t, n, _ = x.shape
 
-        # Add temporal embedding
-        temp_emb = self.temporal_embedding[:, :t, :, :]
-        x += temp_emb
-
         x = self.dropout(x)
 
         # Spatial transformer processing
         x = rearrange(x, 'b t n d -> (b t) n d')  # [B * T, N, D]
         x = self.space_transformer(x)  # [B, T, N, D]
         x = rearrange(x, '(b t) n d -> b t n d', b=b)  # [B, T, N, D]
+
+        # Add temporal embedding
+        temp_emb = self.temporal_embedding[:, :t, :, :]
+        x += temp_emb
 
         # Temporal transformer processing
         attn_mask = self.create_temporal_attention_mask(t, n, device=x.device)  # [T * N, T * N]
@@ -101,10 +101,11 @@ class PatchEmbedding(nn.Module):
     - D is the dimension of the embedding.
     """
 
-    def __init__(self, image_size, patch_size, dim):
+    def __init__(self, image_size_3d, image_size_2d, patch_size, dim):
         super().__init__()
 
-        Z, W, H, C = image_size
+        Z, W, H, C_3d = image_size_3d
+        W, H, C_2d = image_size_2d
         patch_z, patch_w, patch_h = patch_size
 
         # Calculate the number of patches
@@ -112,8 +113,8 @@ class PatchEmbedding(nn.Module):
         self.num_patches_2d = (W // patch_w) * (H // patch_h)
         self.num_patches = self.num_patches_3d + self.num_patches_2d
 
-        self.conv_upper = nn.Conv3d(in_channels=C, out_channels=dim, kernel_size=patch_size, stride=patch_size)
-        self.conv_surface = nn.Conv2d(in_channels=9, out_channels=dim, kernel_size=patch_size[1:], stride=patch_size[1:])
+        self.conv_upper = nn.Conv3d(in_channels=C_3d, out_channels=dim, kernel_size=patch_size, stride=patch_size)
+        self.conv_surface = nn.Conv2d(in_channels=C_2d, out_channels=dim, kernel_size=patch_size[1:], stride=patch_size[1:])
 
         # Positional embedding
         self.pos_embedding = nn.Parameter(torch.randn(

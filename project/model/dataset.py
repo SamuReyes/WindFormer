@@ -52,6 +52,8 @@ class HDF5CustomDataset(Dataset):
             'upper': torch.from_numpy(upper_sequence).float(),
             'surface': torch.from_numpy(surface_sequence).float(),
             'upper_label': torch.from_numpy(upper_label).float(),
-            'surface_label': torch.from_numpy(surface_label).float()
+            'surface_label': torch.from_numpy(surface_label).float(),
+            'year': year_key,
+            'index': within_year_idx
         }
         return data

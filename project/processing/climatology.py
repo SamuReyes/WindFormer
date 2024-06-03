@@ -77,8 +77,11 @@ def process_month(path: str, month: int, level: str, longitude, latitude, levels
     else:
         raise ValueError('level must be "upper" or "surface"')
 
+    years = list(range(1981, 2011)) # Climatology period (1981-2010)
     file_pattern = f"{path}/*-{str(month).zfill(2)}-{level}.nc"
     files = sorted(glob.glob(file_pattern))
+    year_regex = re.compile(r'(\d{4})-\d{2}-')
+    files = [file for file in files if int(year_regex.search(file).group(1)) in range(1981, 2011)]
 
     # TODO: parallelize this
     for file in files:
