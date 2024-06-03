@@ -116,7 +116,8 @@ RUN --mount=type=cache,mode=0777,target=/home/${USER}/.cache,uid=${UID},gid=${GI
     pip install wandb && \
     pip install xarray && \
     pip install h5py && \
-    pip install geopandas
+    pip install geopandas && \
+    pip install ipyleaflet
 
 RUN tmp="$(python3 -c "from jupyter_server.auth import passwd; print(passwd('$PASSWORD'))")" && \
     echo "c.ServerApp.password='$tmp'">>/home/${USER}/.jupyter/jupyter_server_config.py && \
