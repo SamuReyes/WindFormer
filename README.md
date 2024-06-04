@@ -23,17 +23,12 @@
   </p>
 </div>
 
-
-
 <!-- TABLE OF CONTENTS -->
 <details>
   <summary>Table of Contents</summary>
   <ol>
     <li>
       <a href="#about-the-project">About The Project</a>
-      <ul>
-        <li><a href="#built-with">Built With</a></li>
-      </ul>
     </li>
     <li>
       <a href="#getting-started">Getting Started</a>
@@ -43,7 +38,7 @@
       </ul>
     </li>
     <li><a href="#usage">Usage</a></li>
-    <li><a href="#roadmap">Roadmap</a></li>
+    <li><a href="#future-work">Future Work</a></li>
     <li><a href="#contributing">Contributing</a></li>
     <li><a href="#license">License</a></li>
     <li><a href="#contact">Contact</a></li>
@@ -51,30 +46,14 @@
   </ol>
 </details>
 
-
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
+Efficient and accurate wind forecasting presents a substantial challenge in the field of meteorology, particularly when it involves high-resolution data. Accurate prediction of wind speed and direction is crucial for the safety of sectors such as aviation and wind turbines, and for the efficiency of renewable energies. Traditional physical and numerical models often struggle with this complexity, resulting in diminished and slow performance. Similarly, recent advancements in deep learning have introduced encoder-decoder models aimed at improving forecasting accuracy. However, these models continue to face efficiency issues and struggle to balance the trade-off between accuracy and computational demand. This situation underscores the pressing need for innovative solutions capable of surpassing the constraints of current forecasting models by offering both high accuracy and efficiency.
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+In response to this challenge, WindFormer, a novel transformer-based model inspired by Video Vision Transformers and adapted into a decoder-only architecture, was developed. This design allows WindFormer to effectively capture temporal and spatial patterns in atmospheric data. WindFormer is pre-trained on high-resolution ERA5 reanalysis data that specifically targets a 3D grid across the Iberian Peninsula with a spatial resolution of 0.25º and a temporal granularity of one hour. The goal of WindFormer is twofold: to serve as a robust pre-trained model that can be fine-tuned with observational wind data and to offer efficient predictions over reanalysis data. Such an architecture proves advantageous in handling the vast datasets typical of meteorological analysis and allows for the intricate extraction of relevant features and patterns critical to forecasting. The results of this application demonstrate the effectiveness of WindFormer, achieving similar Root Mean Square Error (RMSE) and Anomaly Correlation Coefficient (ACC) values compared to state-of-the-art models, highlighting its capability to provide accurate and efficient wind speed forecasts using a decoder-only architecture.
 
-
-### Built With
-
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- GETTING STARTED -->
-## Getting Started
-
-
-### Prerequisites
-
-ViViT
-### Installation
-
+This breakthrough not only achieves good results in wind forecasting but also provides a scalable framework that could be adapted for various predictive applications in meteorology and beyond.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -134,17 +113,27 @@ By following these steps, you should have the project running on your local mach
 <!-- USAGE EXAMPLES -->
 ## Usage
 
+The project is organized in a modular way, allowing you to execute various functions such as data preprocessing, model training, or model evaluation from the pipeline. Once the environment is set up with Docker, the data extracted from the ERA5 API should be saved in netCDF format in the `project/data/raw` folder. The data can be downloaded using the ERA5 API:
+
+- [Data at various pressure levels](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels?tab=form)
+- [Surface data](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-single-levels?tab=form)
+
+In `project/config/params.yaml`, you can adjust the project's configuration by varying the variables to include, the area of the terrain, the pressure levels to include, model hyperparameters, etc.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+## Future Work
 
-<!-- CONTRIBUTING -->
+- Train with observational data (see 'surface-real-data' branch.
+- Comparisons against state-of-the-art models like [ClimaX](https://github.com/microsoft/ClimaX) or [PanguWeather](https://github.com/rudolfmard/Pangu-Weather-mini?tab=readme-ov-file).
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 ## Contributing
 
 Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
 
-If you have a suggestion that would make this better, please fork the repo and create a pull request. You can also simply open an issue with the tag "enhancement".
-Don't forget to give the project a star! Thanks again!
+If you have a suggestion that would make this better, please fork the repo and create a pull request. You can also simply open an issue with the tag "enhancement". Don't forget to give the project a star! Thanks again!
 
 1. Fork the Project
 2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
@@ -154,31 +143,25 @@ Don't forget to give the project a star! Thanks again!
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-
-<!-- LICENSE -->
 ## License
 
+Distributed under the MIT License. See `LICENSE.txt` for more information.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-
-
-<!-- CONTACT -->
 ## Contact
 
 Samuel Reyes - [LinkedIn](https://www.linkedin.com/in/samuel-reyes-sanz/) - samuel.reyes.sanz@gmail.com
 
+If you find this project interesting and would like to support its development, donations are welcome at [PayPal](https://www.paypal.com/paypalme/samuelreyessanz).
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-
-
-<!-- ACKNOWLEDGMENTS -->
 ## Acknowledgments
 
+Special thanks to my supervisors [Carlos Camacho](https://github.com/carloscamachogom) and [Javier Huerta](https://github.com/jahuerta92) for their guidance and support.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
